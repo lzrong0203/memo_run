@@ -1,0 +1,18 @@
+# Environment
+.env
+
+# Database
+data/*.db
+
+# Python
+__pycache__/
+*.pyc
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+
+# Node / OpenClaw
+node_modules/
+
+# OS
+.DS_Store

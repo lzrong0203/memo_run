@@ -1,0 +1,20 @@
+mission_mode: "政治/公關偵察"  # 或 "娛樂/演藝動態"
+
+keywords:
+  - keyword: "台北"
+    enabled: true
+  - keyword: "某人名"
+    enabled: true
+  - keyword: "某地區"
+    enabled: false  # 暫停監控
+
+# 分類標籤（依任務模式切換）
+labels:
+  政治/公關偵察: ["政治", "交通", "社會", "投訴"]
+  娛樂/演藝動態: ["音樂", "演藝", "批判", "支持"]
+
+# 巡邏設定
+patrol:
+  interval_minutes: 30
+  max_scroll_attempts: 20
+  delay_between_keywords_seconds: 7
