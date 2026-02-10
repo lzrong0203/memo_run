@@ -154,9 +154,13 @@ def test_filter_keeps_valid_content():
 ```
 
 ### 測試覆蓋率
-- **目標**: 80%+ coverage -- 已達成（85%+）
+- **目標**: 80%+ coverage
+- **實測結果**: 63%（`--cov=src`），核心邏輯函數接近 100%，`__main__` CLI 區塊未覆蓋拉低整體
+  - `line_notify.py`: 74%（CLI 入口未覆蓋）
+  - `dedup.py`: 58%（CLI 入口 + 部分 error path 未覆蓋）
+  - `filter.py`: 56%（CLI 入口 + 部分 error path 未覆蓋）
 - **工具**: pytest（Python），pytest-cov（coverage）
-- **測試統計**: 48 個測試，100% 通過率
+- **測試統計**: 48 個測試，100% 通過率（0.22s）
   - line_notify.py: 20 個測試（含 notification message 5 個）
   - filter.py: 14 個測試
   - dedup.py: 14 個測試
@@ -253,7 +257,7 @@ except requests.RequestException as e:
 - [x] src/dedup.py（SQLite 去重，CRUD 操作完整）
 - [x] tests/test_line_notify.py（20 個測試，含 notification message 測試）
 - [x] src/line_notify.py（LINE Messaging API，含 send_notification_message）
-- [x] 測試覆蓋率 85%+（48 個測試全部通過）
+- [x] 測試覆蓋率 63%（48 個測試全部通過，核心邏輯接近 100%）
 ```
 
 ### Phase 3: OpenClaw Skills -- 已完成
@@ -262,15 +266,20 @@ except requests.RequestException as e:
 - [x] skills/threads-monitor/SKILL.md（348 lines，主監控流程）
 - [x] skills/line-notify/SKILL.md（437 lines，LINE 通知包裝）
 - [x] skills/report-generator/SKILL.md（979 lines，AI 分類與戰報生成）
-- [ ] 測試 Skills 是否能被 OpenClaw 讀取（待驗證）
+- [x] Skills 語法驗證通過（3/3 YAML frontmatter + 必要欄位 + 環境變數一致性）
+- [ ] 測試 Skills 是否能被 OpenClaw 實際執行（待端對端驗證）
 ```
 
 ### Phase 4: Docker 部署 -- 已刪除
 - OpenClaw 是系統級框架，不需要 Docker 容器化
 
-### Phase 5: 驗證與測試 -- 待 Phase 3 完成
+### Phase 5: 驗證與測試 -- 進行中
 ```markdown
-- [ ] 端對端驗證流程
+- [x] 單元測試驗證（48/48 passed, 0.22s）
+- [x] 覆蓋率檢查（63%，核心邏輯接近 100%）
+- [x] Skills 語法驗證（3/3 passed）
+- [x] 安全性修正（移除 git 歷史中的明文 tokens）
+- [ ] 端對端驗證流程（待執行 openclaw agent 命令）
 - [ ] 健康檢查機制
 - [ ] 錯誤通知機制
 ```
