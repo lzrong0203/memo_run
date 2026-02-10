@@ -4,6 +4,8 @@ import json
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 
+from scoring import load_scoring_config, apply_scoring_to_posts
+
 logger = logging.getLogger(__name__)
 
 MAX_LINE_MESSAGE_LENGTH = 5000
@@ -69,11 +71,17 @@ def classify_posts_by_category(posts: List[Dict]) -> Dict[str, List[Dict]]:
     return categorized
 
 
+def _get_effective_importance(post: Dict) -> int:
+    """取得貼文的有效分數（優先使用 adjusted_importance）。"""
+    analysis = post.get("analysis", {})
+    return analysis.get("adjusted_importance", analysis.get("importance", 0))
+
+
 def identify_big_fish(posts: List[Dict]) -> List[Dict]:
     """
     識別大魚（重大議題）貼文。
 
-    判斷標準：
+    判斷標準（使用 adjusted_importance，若無則用原始 importance）：
     1. importance >= 9
     2. categories >= 3 且 importance >= 8
 
@@ -81,12 +89,12 @@ def identify_big_fish(posts: List[Dict]) -> List[Dict]:
         posts: 已分析的貼文列表。
 
     Returns:
-        List[Dict]: 大魚貼文列表（依 importance 降序排列）。
+        List[Dict]: 大魚貼文列表（依有效分數降序排列）。
     """
     big_fish = []
     for post in posts:
         analysis = post.get("analysis", {})
-        importance = analysis.get("importance", 0)
+        importance = _get_effective_importance(post)
         categories = analysis.get("categories", [])
 
         if importance >= 9:
@@ -94,7 +102,7 @@ def identify_big_fish(posts: List[Dict]) -> List[Dict]:
         elif len(categories) >= 3 and importance >= 8:
             big_fish.append(post)
 
-    big_fish.sort(key=lambda p: p.get("analysis", {}).get("importance", 0), reverse=True)
+    big_fish.sort(key=_get_effective_importance, reverse=True)
     return big_fish
 
 
@@ -201,9 +209,17 @@ def generate_markdown_report(data: Dict) -> str:
             analysis = fish.get("analysis", {})
             cats = analysis.get("categories", [])
             cat_label = "][".join(cats)
+            eff = _get_effective_importance(fish)
             lines.append(f"### {i}. [{cat_label}] {analysis.get('summary', '')}")
             lines.append("")
-            lines.append(f"- **重要性**: {analysis.get('importance', 'N/A')}/10")
+            eff_imp = _get_effective_importance(fish)
+            base_imp = analysis.get('importance', 'N/A')
+            bonus_detail = analysis.get('bonus_detail', [])
+            if bonus_detail:
+                bonus_str = " + ".join(f"{d['rule_name']}+{d['bonus']}" for d in bonus_detail)
+                lines.append(f"- **重要性**: {eff_imp}/10（原始 {base_imp}，加分: {bonus_str}）")
+            else:
+                lines.append(f"- **重要性**: {eff_imp}/10")
             lines.append(f"- **作者**: @{fish.get('author', 'unknown')}")
             lines.append(f"- **時間**: {fish.get('timestamp', 'N/A')}")
             lines.append(f"- **摘要**: {analysis.get('summary', '')}")
@@ -233,17 +249,17 @@ def generate_markdown_report(data: Dict) -> str:
     for cs in category_stats:
         cat_name = cs["name"]
         cat_posts = categorized.get(cat_name, [])
-        # 按 importance 降序
+        # 按有效分數降序
         cat_posts_sorted = sorted(
             cat_posts,
-            key=lambda p: p.get("analysis", {}).get("importance", 0),
+            key=_get_effective_importance,
             reverse=True
         )
         lines.append(f"### {cat_name}（{len(cat_posts_sorted)} 篇）")
         lines.append("")
         for j, post in enumerate(cat_posts_sorted, 1):
             a = post.get("analysis", {})
-            imp = a.get("importance", 0)
+            imp = _get_effective_importance(post)
             lines.append(f"{j}. [{imp}/10] {a.get('summary', post.get('content', '')[:60])}")
             lines.append(f"   - @{post.get('author', 'unknown')} | "
                          f"[原文]({post.get('link', '')})")
@@ -288,7 +304,8 @@ def generate_line_summary(data: Dict, report_url: Optional[str] = None) -> str:
         parts.append(f"🐟 大魚警報（{len(big_fish)} 則）:")
         for fish in big_fish:
             a = fish.get("analysis", {})
-            parts.append(f"[{a.get('importance', '?')}/10] {a.get('summary', '')}")
+            eff = _get_effective_importance(fish)
+            parts.append(f"[{eff}/10] {a.get('summary', '')}")
             parts.append(f"→ {fish.get('link', '')}")
         parts.append("")
 
@@ -362,7 +379,8 @@ def generate_telegram_summary(data: Dict, report_url: Optional[str] = None) -> s
             a = fish.get("analysis", {})
             link = fish.get("link", "")
             summary_text = a.get("summary", "")
-            parts.append(f"*[{a.get('importance', '?')}/10]* {summary_text}")
+            eff = _get_effective_importance(fish)
+            parts.append(f"*[{eff}/10]* {summary_text}")
             parts.append(f"[查看原文]({link})")
             parts.append("")
 
@@ -486,15 +504,18 @@ def save_report(report_content: str, reports_dir: str = DEFAULT_REPORTS_DIR,
 
 
 def generate_all_outputs(data: Dict, reports_dir: str = DEFAULT_REPORTS_DIR,
-                         upload_gist: bool = False
+                         upload_gist: bool = False,
+                         scoring_config_path: Optional[str] = None
                          ) -> Optional[Dict[str, str]]:
     """
     一次性生成所有輸出並儲存報告檔案。可選上傳 Gist。
+    會自動套用 config/scoring.yml 的加分規則。
 
     Args:
         data: 完整的監控資料字典。
         reports_dir: 報告儲存目錄。
         upload_gist: 是否上傳到 GitHub Gist。
+        scoring_config_path: 評分設定檔路徑（None 使用預設）。
 
     Returns:
         Dict[str, str] 或 None: 包含所有輸出的字典，資料無效時回傳 None。
@@ -503,6 +524,17 @@ def generate_all_outputs(data: Dict, reports_dir: str = DEFAULT_REPORTS_DIR,
     if not valid:
         logger.error("資料驗證失敗: %s", error)
         return None
+
+    # 套用自訂加分規則
+    if scoring_config_path:
+        scoring_config = load_scoring_config(scoring_config_path)
+    else:
+        scoring_config = load_scoring_config()
+
+    if scoring_config["bonus_rules"]:
+        scored_posts = apply_scoring_to_posts(data["analyzed_posts"], scoring_config)
+        data = {**data, "analyzed_posts": scored_posts}
+        logger.info("已套用 %d 條加分規則", len(scoring_config["bonus_rules"]))
 
     markdown_report = generate_markdown_report(data)
 
@@ -554,6 +586,8 @@ if __name__ == '__main__':
                         default="all", dest="output_format", help="輸出格式")
     parser.add_argument("--gist", action="store_true",
                         help="上傳戰報到 GitHub Gist 並在摘要中附上連結")
+    parser.add_argument("--scoring-config", default=None,
+                        help="評分設定檔路徑（預設 config/scoring.yml）")
 
     args = parser.parse_args()
 
@@ -573,6 +607,13 @@ if __name__ == '__main__':
     if not valid:
         print(f"錯誤: 資料驗證失敗 - {error}", file=sys.stderr)
         sys.exit(1)
+
+    # 套用加分規則
+    scoring_config = load_scoring_config(args.scoring_config) if args.scoring_config else load_scoring_config()
+    if scoring_config["bonus_rules"]:
+        scored_posts = apply_scoring_to_posts(data["analyzed_posts"], scoring_config)
+        data = {**data, "analyzed_posts": scored_posts}
+        logger.info("已套用 %d 條加分規則", len(scoring_config["bonus_rules"]))
 
     # Generate
     if args.output_format == "line":
@@ -594,7 +635,8 @@ if __name__ == '__main__':
         print(f"報告已儲存: {path}")
     else:  # all
         outputs = generate_all_outputs(data, reports_dir=args.output_dir,
-                                       upload_gist=args.gist)
+                                       upload_gist=args.gist,
+                                       scoring_config_path=args.scoring_config)
         if outputs:
             print(f"報告已儲存: {outputs['report_path']}")
             if outputs.get("gist_url"):
