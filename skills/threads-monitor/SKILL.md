@@ -16,8 +16,9 @@ metadata: {"openclaw": {"emoji": "🔍", "primaryEnv": "ANTHROPIC_API_KEY", "req
 
 > **你必須直接執行以下所有步驟，不要委派給子 agent。**
 > **使用 browser profile "openclaw"，在同一個 tab 中操作，不要開新 tab。**
-> **工作目錄為 `~/.openclaw/workspace/memo_run/`，所有 Python 指令都必須加上完整路徑前綴 `~/.openclaw/workspace/memo_run/`。**
+> **所有 Python 指令都必須使用絕對路徑 `/Users/steveopenclaw/.openclaw/workspace/memo_run/`。**
 > **每個步驟必須按順序執行，不可跳過。**
+> **所有 Python exec 指令都會回傳 exit code 0，用輸出文字判斷結果。**
 
 ## 使用方式
 
@@ -56,8 +57,7 @@ openclaw cron add "*/30 * * * *" "openclaw agent --message '執行 threads-monit
 使用 exec 工具讀取設定檔：
 
 ```bash
-cat ~/.openclaw/workspace/memo_run/config/keywords.yml
-cat ~/.openclaw/workspace/memo_run/config/filters.yml
+cat /Users/steveopenclaw/.openclaw/workspace/memo_run/config/keywords.yml
 ```
 
 從 `keywords.yml` 取得 `enabled: true` 的關鍵字列表。
@@ -81,73 +81,93 @@ cat ~/.openclaw/workspace/memo_run/config/filters.yml
 
 ### 步驟 3: 滑動載入更多貼文
 
-**重複以下迴圈，直到收集到足夠的貼文（目標 20 筆）或已滑動 5 次：**
+**重複以下迴圈，最多滑動 5 次：**
+
+每次滑動的完整流程：
 
 1. 滑動頁面到底部（**必須用 `window.scrollTo`**）：
    ```
    browser execute window.scrollTo(0, document.body.scrollHeight)
    ```
-2. **等待新內容載入完成**（這一步很重要，不要跳過）：
+2. **等待 5 秒**讓新內容載入（Threads 載入較慢，不要縮短）：
    ```
-   browser wait --time 4000
+   browser wait --time 5000
    ```
-3. 再次擷取快照，檢查是否有新貼文出現：
+3. **再滑一次**確保觸發載入：
+   ```
+   browser execute window.scrollTo(0, document.body.scrollHeight)
+   ```
+4. **再等 3 秒**：
+   ```
+   browser wait --time 3000
+   ```
+5. 擷取快照，檢查是否有新貼文出現：
    ```
    browser snapshot
    ```
-4. 如果新快照中的貼文數量比上一次多，繼續滑動（回到步驟 1）
-5. 如果新快照中的貼文數量沒有增加，表示已到底，停止滑動
+6. 如果新快照中的貼文數量比上一次多，繼續滑動（回到步驟 1）
+7. 如果新快照中的貼文數量沒有增加，表示已到底，停止滑動
 
-> **注意**：每次 `browser wait` 至少等 4 秒。Threads 的 infinite scroll 需要時間載入，等太短會看不到新內容。
+> **注意**：每輪滑動要滑兩次+等待共 8 秒。Threads 的 infinite scroll 需要時間載入，等太短會漏掉貼文。
 
-### 步驟 4: 提取貼文內容
+### 步驟 4: 提取貼文並整理為 JSON
 
-從所有快照中彙整提取貼文資訊（去除重複）：
-- 貼文內容文字
-- 作者名稱
-- 貼文連結
+從所有快照中彙整提取貼文資訊（去除重複），整理成 JSON 陣列格式：
+
+```json
+[
+  {
+    "content": "貼文內容文字",
+    "author": "作者名稱",
+    "link": "https://www.threads.net/@作者/post/ID"
+  }
+]
+```
 
 每個關鍵字最多抓取 20 筆最新貼文。
 
-### 步驟 5: 硬性過濾（必須先於去重）
+### 步驟 5: 批次處理（過濾 + 去重 + 評分，一次完成）
 
-**對每筆貼文呼叫 Python 過濾**（注意使用完整路徑）：
-
-```bash
-python3 ~/.openclaw/workspace/memo_run/src/filter.py --config ~/.openclaw/workspace/memo_run/config/filters.yml --content "貼文內容文字"
-```
-
-- exit code 0 = 保留（通過過濾）
-- exit code 1 = 丟棄（被過濾）
-- 白名單關鍵字（如「警方」、「逮捕」、「毒品」）優先級最高
-
-### 步驟 6: 去重處理（只處理通過過濾的貼文）
+**將步驟 4 的 JSON 陣列透過 stdin 傳給 pipeline.py，一次完成所有處理：**
 
 ```bash
-# 檢查貼文是否已處理（用貼文連結作為 ID）
-python3 ~/.openclaw/workspace/memo_run/src/dedup.py --check "貼文連結URL"
-
-# 若未處理過（exit code 1），加入資料庫
-python3 ~/.openclaw/workspace/memo_run/src/dedup.py --add "貼文連結URL"
+echo '步驟4的JSON陣列' | python3 /Users/steveopenclaw/.openclaw/workspace/memo_run/src/pipeline.py
 ```
 
-### 步驟 7: AI 語意分析
+pipeline.py 會一次完成：
+- 硬性過濾（排除廣告、太短的內容）
+- 去重（跳過已處理過的貼文）
+- 評分加成（交通/民意代表等關鍵字加分）
 
-對通過過濾和去重的貼文，直接使用你的 LLM 能力判斷：
+**輸出是 JSON，包含：**
+```json
+{
+  "passed_posts": [通過的貼文陣列],
+  "filtered_count": 被過濾數量,
+  "duplicate_count": 重複數量,
+  "new_count": 有效新貼文數量,
+  "total_input": 輸入總數,
+  "summary": "掃描 12 篇 → 過濾 3 篇 → 重複 2 篇 → 有效 7 篇"
+}
+```
+
+### 步驟 6: AI 語意分析
+
+對 `passed_posts` 中的貼文，直接使用你的 LLM 能力判斷：
 - 內容是否與公共議題相關（政治、社會、交通、民生等）
 - 回答 RELEVANT 或 IRRELEVANT
 - 過濾掉純私人抱怨、閒聊、廣告等內容
 
-### 步驟 8: 產出結果
+### 步驟 7: 產出結果並發送通知
 
 將有效貼文彙整為摘要，包含：
 - 搜尋的關鍵字
-- 有效貼文數量和統計
-- 每筆貼文的摘要、作者、連結
+- pipeline 的 summary 統計
+- 每筆 RELEVANT 貼文的摘要、作者、連結
 - 使用以下指令發送 LINE 通知：
 
 ```bash
-python3 ~/.openclaw/workspace/memo_run/src/line_notify.py --message "摘要內容"
+python3 /Users/steveopenclaw/.openclaw/workspace/memo_run/src/line_notify.py --message "摘要內容"
 ```
 
 ## 環境變數需求
@@ -245,7 +265,7 @@ openclaw agent --message "執行 threads-monitor 監控（測試模式）" --loc
 
 ---
 
-**版本**: 1.2.0
+**版本**: 2.0.0
 **最後更新**: 2026-02-11
 **作者**: Claude Code + OpenClaw
 **License**: AGPL-3.0

@@ -42,15 +42,21 @@ memo_run/                      # 這個專案資料夾
 │   ├── keywords.yml          # 監控關鍵字
 │   └── filters.yml           # 排除規則
 ├── src/                       # Helper scripts（OpenClaw 會呼叫）
+│   ├── pipeline.py           # 批次處理 pipeline（filter+dedup+scoring 一次完成）
 │   ├── filter.py             # 硬性排除過濾
 │   ├── dedup.py              # SQLite 去重
+│   ├── scoring.py            # 自訂評分加成
+│   ├── report_generator.py   # 戰報生成（Markdown + LINE/Telegram 摘要）
 │   └── line_notify.py        # LINE Messaging API (Push Message)
 ├── data/                      # 資料儲存
 │   └── processed_posts.db    # SQLite 去重資料庫
 ├── tests/                     # 測試（遵循 TDD）
 │   ├── test_filter.py
 │   ├── test_dedup.py
-│   └── test_line_notify.py
+│   ├── test_line_notify.py
+│   ├── test_report_generator.py
+│   ├── test_scoring.py
+│   └── test_pipeline.py
 ├── CONTEXT.md                # OpenClaw 的工作日誌
 ├── CLAUDE.md                 # 本檔案（專案記憶）
 └── README.md                 # 使用說明
@@ -81,9 +87,9 @@ memo_run/                      # 這個專案資料夾
    ↓
 4. 讀取 config/keywords.yml，逐個搜尋
    ↓
-5. 抓取貼文 → 呼叫 src/filter.py（硬性排除）
+5. 抓取貼文 → 整理為 JSON 陣列
    ↓
-6. 呼叫 src/dedup.py（SQLite 去重）
+6. 呼叫 src/pipeline.py（一次完成：硬性過濾 + SQLite 去重 + 評分加成）
    ↓
 7. AI 語意分析（OpenClaw 內建 LLM）
    ↓
@@ -160,8 +166,11 @@ def test_filter_keeps_valid_content():
   - `dedup.py`: 58%（CLI 入口 + 部分 error path 未覆蓋）
   - `filter.py`: 56%（CLI 入口 + 部分 error path 未覆蓋）
 - **工具**: pytest（Python），pytest-cov（coverage）
-- **測試統計**: 48 個測試，100% 通過率（0.22s）
+- **測試統計**: 114 個測試，100% 通過率
+  - report_generator.py: 28 個測試
   - line_notify.py: 20 個測試（含 notification message 5 個）
+  - scoring.py: 20 個測試
+  - pipeline.py: 18 個測試
   - filter.py: 14 個測試
   - dedup.py: 14 個測試
 
@@ -271,7 +280,13 @@ except requests.RequestException as e:
 - [x] src/dedup.py（SQLite 去重，CRUD 操作完整）
 - [x] tests/test_line_notify.py（20 個測試，含 notification message 測試）
 - [x] src/line_notify.py（LINE Messaging API，含 send_notification_message）
-- [x] 測試覆蓋率 63%（48 個測試全部通過，核心邏輯接近 100%）
+- [x] tests/test_report_generator.py（28 個測試）
+- [x] src/report_generator.py（Markdown 戰報 + LINE/Telegram 摘要）
+- [x] tests/test_scoring.py（20 個測試）
+- [x] src/scoring.py（自訂評分加成，依 config/scoring.yml）
+- [x] tests/test_pipeline.py（18 個測試）
+- [x] src/pipeline.py（批次 pipeline：filter+dedup+scoring 一次完成）
+- [x] 114 個測試全部通過
 ```
 
 ### Phase 3: OpenClaw Skills -- 已完成
@@ -390,9 +405,10 @@ set -a && source .env && set +a
 
 ---
 
-**Last Updated**: 2026-02-10
+**Last Updated**: 2026-02-11
 **Architecture**: OpenClaw (系統級) + Python Helper Scripts
 **Collaboration**: Claude Code (Reviewer) + OpenClaw (Executor)
 **No Docker Needed**: OpenClaw 跑在系統上，這個專案是 Skills 和資料
 **LINE API**: LINE Messaging API Push Message（LINE Notify 已於 2025/03/31 終止）
-**Test Status**: 48/48 tests passed, 63% coverage (核心邏輯接近 100%)
+**Pipeline**: pipeline.py 批次處理（filter+dedup+scoring 一次完成，取代逐篇 exec）
+**Test Status**: 114/114 tests passed

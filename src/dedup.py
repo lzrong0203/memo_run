@@ -202,11 +202,11 @@ if __name__ == '__main__':
         if args.check:
             is_processed = dedup.is_processed(args.check)
             if is_processed:
-                print(f"✅ 貼文 {args.check} 已處理過")
+                print(f"DUPLICATE 貼文 {args.check} 已處理過")
                 sys.exit(0)
             else:
-                print(f"❌ 貼文 {args.check} 尚未處理")
-                sys.exit(1)
+                print(f"NEW 貼文 {args.check} 尚未處理")
+                sys.exit(0)
 
         elif args.add:
             success = dedup.add_post(args.add)

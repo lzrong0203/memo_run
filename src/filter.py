@@ -106,10 +106,10 @@ if __name__ == '__main__':
         should_filter = should_filter_content(args.content, config)
 
         if should_filter:
-            print("❌ 內容被過濾（應該丟棄）")
-            sys.exit(1)
+            print("FILTERED 內容被過濾（應該丟棄）")
+            sys.exit(0)
         else:
-            print("✅ 內容通過過濾（應該保留）")
+            print("PASS 內容通過過濾（應該保留）")
             sys.exit(0)
 
     except FileNotFoundError as e:
