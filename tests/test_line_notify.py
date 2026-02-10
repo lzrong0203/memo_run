@@ -7,7 +7,7 @@ import requests
 # 將 src 目錄添加到 Python 路徑中
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
 
-from line_notify import send_line_message, MAX_MESSAGE_LENGTH
+from line_notify import send_line_message, send_notification_message, MAX_MESSAGE_LENGTH
 
 
 class TestLineMessaging(unittest.TestCase):
@@ -155,6 +155,123 @@ class TestLineMessaging(unittest.TestCase):
 
         success = send_line_message(self.mock_token, self.mock_user_id, self.mock_message)
         self.assertFalse(success, "一般 request 異常應該失敗")
+
+    # ========== Notification Message Tests ==========
+
+    @patch('line_notify.requests.post')
+    def test_send_notification_with_list_keywords(self, mock_post):
+        """測試發送格式化通知（使用關鍵字列表）"""
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.raise_for_status.return_value = None
+        mock_post.return_value = mock_response
+
+        keywords = ["政治", "選舉", "投票"]
+        summary = "這是一則關於選舉的重要報導，內容包含多項關鍵議題。"
+        report_url = "https://example.com/report/12345"
+
+        success = send_notification_message(
+            self.mock_token,
+            self.mock_user_id,
+            keywords,
+            summary,
+            report_url
+        )
+
+        self.assertTrue(success, "應該成功發送通知")
+        mock_post.assert_called_once()
+
+        # 檢查訊息內容格式
+        call_kwargs = mock_post.call_args.kwargs
+        message_text = call_kwargs['json']['messages'][0]['text']
+
+        self.assertIn("🔔 Threads 監控通知", message_text)
+        self.assertIn("關鍵字: 政治, 選舉, 投票", message_text)
+        self.assertIn("摘要:", message_text)
+        self.assertIn(summary, message_text)
+        self.assertIn("完整報告:", message_text)
+        self.assertIn(report_url, message_text)
+
+    @patch('line_notify.requests.post')
+    def test_send_notification_with_string_keyword(self, mock_post):
+        """測試發送格式化通知（使用單一關鍵字字串）"""
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.raise_for_status.return_value = None
+        mock_post.return_value = mock_response
+
+        keyword = "緊急通知"
+        summary = "這是一則緊急通知，請立即注意。"
+        report_url = "https://example.com/urgent/001"
+
+        success = send_notification_message(
+            self.mock_token,
+            self.mock_user_id,
+            keyword,
+            summary,
+            report_url
+        )
+
+        self.assertTrue(success, "應該成功發送通知")
+
+        # 檢查訊息內容格式
+        call_kwargs = mock_post.call_args.kwargs
+        message_text = call_kwargs['json']['messages'][0]['text']
+
+        self.assertIn("關鍵字: 緊急通知", message_text)
+        self.assertIn(summary, message_text)
+        self.assertIn(report_url, message_text)
+
+    @patch('line_notify.requests.post')
+    def test_send_notification_empty_keywords(self, mock_post):
+        """測試空關鍵字應該失敗"""
+        summary = "這是摘要"
+        report_url = "https://example.com/report/123"
+
+        success = send_notification_message(
+            self.mock_token,
+            self.mock_user_id,
+            [],
+            summary,
+            report_url
+        )
+
+        self.assertFalse(success, "空關鍵字應該失敗")
+        mock_post.assert_not_called()
+
+    @patch('line_notify.requests.post')
+    def test_send_notification_empty_summary(self, mock_post):
+        """測試空摘要應該失敗"""
+        keywords = ["測試"]
+        report_url = "https://example.com/report/123"
+
+        success = send_notification_message(
+            self.mock_token,
+            self.mock_user_id,
+            keywords,
+            "",
+            report_url
+        )
+
+        self.assertFalse(success, "空摘要應該失敗")
+        mock_post.assert_not_called()
+
+    @patch('line_notify.requests.post')
+    def test_send_notification_empty_url(self, mock_post):
+        """測試空 URL 應該失敗"""
+        keywords = ["測試"]
+        summary = "這是摘要"
+
+        success = send_notification_message(
+            self.mock_token,
+            self.mock_user_id,
+            keywords,
+            summary,
+            ""
+        )
+
+        self.assertFalse(success, "空 URL 應該失敗")
+        mock_post.assert_not_called()
 
 
 if __name__ == '__main__':

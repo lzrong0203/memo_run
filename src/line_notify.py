@@ -1,5 +1,6 @@
 import logging
 import requests
+from typing import List, Union
 
 LINE_MESSAGING_API_URL: str = "https://api.line.me/v2/bot/message/push"
 TIMEOUT_SECONDS = 10
@@ -89,6 +90,60 @@ def send_line_message(channel_access_token: str, to_user_id: str, message: str) 
     except requests.exceptions.RequestException as exc:
         logger.error("LINE message failed - Request error: %s", exc)
         return False
+
+
+def send_notification_message(
+    channel_access_token: str,
+    to_user_id: str,
+    keywords: Union[List[str], str],
+    summary: str,
+    report_url: str
+) -> bool:
+    """
+    發送格式化的 Threads 監控通知訊息。
+
+    Args:
+        channel_access_token: LINE Messaging API 的 Channel Access Token。
+        to_user_id: 接收訊息的 LINE 用戶 ID。
+        keywords: 關鍵字列表或單一關鍵字字串。
+        summary: 摘要內容。
+        report_url: 完整報告的連結。
+
+    Returns:
+        bool: 如果訊息發送成功，則返回 True，否則返回 False。
+    """
+    # Input validation
+    if not keywords:
+        logger.error("Keywords is empty")
+        return False
+
+    if not summary or not isinstance(summary, str):
+        logger.error("Summary is empty or invalid")
+        return False
+
+    if not report_url or not isinstance(report_url, str):
+        logger.error("Report URL is empty or invalid")
+        return False
+
+    # Format keywords
+    if isinstance(keywords, list):
+        keywords_str = ", ".join(keywords)
+    else:
+        keywords_str = keywords
+
+    # Build formatted message
+    message = f"""🔔 Threads 監控通知
+
+關鍵字: {keywords_str}
+
+摘要:
+{summary}
+
+完整報告:
+{report_url}"""
+
+    # Send using the base function
+    return send_line_message(channel_access_token, to_user_id, message)
 
 
 if __name__ == '__main__':
