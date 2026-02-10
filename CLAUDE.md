@@ -44,7 +44,7 @@ memo_run/                      # 這個專案資料夾
 ├── src/                       # Helper scripts（OpenClaw 會呼叫）
 │   ├── filter.py             # 硬性排除過濾
 │   ├── dedup.py              # SQLite 去重
-│   └── line_notify.py        # LINE Notify API
+│   └── line_notify.py        # LINE Messaging API (Push Message)
 ├── data/                      # 資料儲存
 │   └── processed_posts.db    # SQLite 去重資料庫
 ├── tests/                     # 測試（遵循 TDD）
@@ -67,7 +67,7 @@ memo_run/                      # 這個專案資料夾
 ### 整合服務
 - **Threads**: Browser automation（OpenClaw Browser + CDP）
 - **Telegram**: OpenClaw 內建（grammY 框架）
-- **LINE**: LINE Notify API（透過 Python script）
+- **LINE**: LINE Messaging API Push Message（透過 Python script，LINE Notify 已於 2025/03/31 終止）
 
 ## Architecture Pattern
 
@@ -91,7 +91,7 @@ memo_run/                      # 這個專案資料夾
    ↓
 9. Telegram 通知（OpenClaw 內建）
    ↓
-10. LINE 通知（呼叫 src/line_notify.py）
+10. LINE 通知（呼叫 src/line_notify.py，使用 LINE Messaging API Push Message）
 ```
 
 ### Skill 設計原則
@@ -115,12 +115,15 @@ memo_run/                      # 這個專案資料夾
 ### 敏感資訊處理
 ```yaml
 # .env（不進版控，只給範例 .env.example）
-THREADS_USERNAME=your_username
-THREADS_PASSWORD=your_password
+ANTHROPIC_API_KEY=your_api_key                    # OpenClaw 會用
+LINE_CHANNEL_ACCESS_TOKEN=your_channel_token      # LINE Messaging API
+LINE_USER_ID=U1234567890abcdef1234567890abcdef    # LINE 接收用戶 ID
 TELEGRAM_BOT_TOKEN=your_bot_token
-LINE_NOTIFY_TOKEN=your_line_token
-ANTHROPIC_API_KEY=your_api_key  # OpenClaw 會用
+TELEGRAM_CHAT_ID=your_chat_id
 ```
+
+> **注意**: LINE Notify API 已於 2025/03/31 終止服務。本專案使用 LINE Messaging API 的 Push Message 功能替代。
+> `LINE_NOTIFY_TOKEN` 已不再使用，已移除。
 
 ### 安全檢查清單
 - [ ] .env 加入 .gitignore（已完成）
@@ -151,9 +154,12 @@ def test_filter_keeps_valid_content():
 ```
 
 ### 測試覆蓋率
-- **目標**: 80%+ coverage
+- **目標**: 80%+ coverage -- 已達成（85%+）
 - **工具**: pytest（Python），pytest-cov（coverage）
-- **何時寫**: Phase 2 開始就要 test-first（TDD）
+- **測試統計**: 48 個測試，100% 通過率
+  - line_notify.py: 20 個測試（含 notification message 5 個）
+  - filter.py: 14 個測試
+  - dedup.py: 14 個測試
 
 ## Code Quality Standards
 
@@ -189,73 +195,84 @@ except requests.RequestException as e:
 
 ## Current Issues（Claude Code Review）
 
-### 🔴 CRITICAL Issues from CONTEXT.md Review
+### 已解決的問題（2026-02-10 修正完畢）
 
-1. **Phase 1 不完整**
-   - ❌ 缺少 README.md（OpenClaw 怎麼用這個專案？）
-   - ❌ 缺少 requirements.txt 或 pyproject.toml（Python 依賴）
-   - ❌ 缺少 .env.example 的詳細說明
+1. ~~**Phase 1 不完整**~~ -- 已完成
+   - ✅ README.md 已建立（含完整使用說明）
+   - ✅ requirements.txt 已建立（版本已 pin）
+   - ✅ .env.example 已更新（LINE Messaging API）
 
-2. **Phase 2 缺少 TDD**
-   - ❌ 計畫中沒有 "先寫測試" 的步驟
-   - ✅ 修正建議：改為 test-first 流程
+2. ~~**Phase 2 缺少 TDD**~~ -- 已完成
+   - ✅ 已改為 test-first 流程
+   - ✅ 48 個測試全部通過，覆蓋率 85%+
 
-### 🟠 HIGH Priority
+3. ~~**安全策略不完整**~~ -- 已改善
+   - ✅ API tokens 從環境變數讀取（已移除 CLI --token 參數）
+   - ✅ Input validation 已加上（包括 header injection 防護）
+   - ✅ Request timeout 已設定（10 秒）
+   - ✅ Dependencies 版本已 pin（修正 CVE）
 
-3. **Skill 格式不明確**
+4. ~~**錯誤處理和監控**~~ -- 已改善
+   - ✅ 所有模組已加入 logging
+   - ✅ 完整的 exception handling
+
+### 待解決的問題
+
+5. **Skill 格式不明確** (Phase 3)
    - ⚠️ SKILL.md 的格式規範是什麼？
    - ⚠️ OpenClaw 如何讀取和執行 SKILL.md？
    - 建議：先研究 OpenClaw 官方文件或範例
-
-4. **安全策略不完整**
-   - ⚠️ Threads 密碼如何安全儲存？
-   - ⚠️ API tokens 如何管理？
-   - 建議：明確定義在 Phase 1
-
-### 🟡 MEDIUM Priority
-
-5. **錯誤處理和監控**
-   - 缺少日誌系統（logging）
-   - 缺少健康檢查（如果 Threads 改版怎麼辦？）
-   - 缺少錯誤通知（監控系統壞了誰知道？）
 
 6. **合規性風險**
    - Threads 服務條款是否允許自動化？
    - Rate limiting 策略夠嗎？（目前 7 秒延遲）
    - 建議：加入 User-Agent 輪換、隨機延遲
 
-## Recommendations for OpenClaw
+7. **健康檢查**
+   - 缺少健康檢查（如果 Threads 改版怎麼辦？）
+   - 缺少錯誤通知（監控系統壞了誰知道？）
 
-### Phase 1 修正建議
+## Implementation Progress
+
+### Phase 1: 專案骨架與設定檔 -- 已完成
 ```markdown
 - [x] config/keywords.yml
-- [x] config/filters.yml
-- [x] .env.example
+- [x] config/filters.yml（改進版：詞組 + 白名單）
+- [x] .env.example（已更新為 LINE Messaging API）
 - [x] .gitignore
-- [ ] requirements.txt（Python 依賴: requests, pyyaml, sqlite3）
-- [ ] README.md（安裝、設定、啟動說明）
-- [ ] data/.gitkeep（確保資料夾存在）
-- [ ] 研究 SKILL.md 格式（OpenClaw 官方文件）
+- [x] requirements.txt（版本已 pin: requests==2.32.3, pytest==8.3.4, pytest-cov==6.0.0）
+- [x] README.md（完整使用說明）
+- [x] data/.gitkeep
 ```
 
-### Phase 2 修正建議（TDD）
+### Phase 2: Python 工具模組 -- 已完成（TDD）
 ```markdown
-- [ ] tests/test_filter.py（先寫測試）
-- [ ] src/filter.py（實作讓測試通過）
-- [ ] tests/test_dedup.py
-- [ ] src/dedup.py
-- [ ] tests/test_line_notify.py
-- [ ] src/line_notify.py
-- [ ] 跑 pytest --cov（確保 80%+ coverage）
+- [x] tests/test_filter.py（14 個測試）
+- [x] src/filter.py（硬性排除 + 白名單 + 最小長度）
+- [x] tests/test_dedup.py（14 個測試）
+- [x] src/dedup.py（SQLite 去重，CRUD 操作完整）
+- [x] tests/test_line_notify.py（20 個測試，含 notification message 測試）
+- [x] src/line_notify.py（LINE Messaging API，含 send_notification_message）
+- [x] 測試覆蓋率 85%+（48 個測試全部通過）
 ```
 
-### Phase 3 新增建議
+### Phase 3: OpenClaw Skills -- 待開始
 ```markdown
 - [ ] 研究 OpenClaw SKILL.md 格式
 - [ ] skills/threads-monitor/SKILL.md
 - [ ] skills/line-notify/SKILL.md
 - [ ] skills/report-generator/SKILL.md
 - [ ] 測試 Skills 是否能被 OpenClaw 讀取
+```
+
+### Phase 4: Docker 部署 -- 已刪除
+- OpenClaw 是系統級框架，不需要 Docker 容器化
+
+### Phase 5: 驗證與測試 -- 待 Phase 3 完成
+```markdown
+- [ ] 端對端驗證流程
+- [ ] 健康檢查機制
+- [ ] 錯誤通知機制
 ```
 
 ## Cost and Performance
@@ -283,18 +300,45 @@ except requests.RequestException as e:
 - Browser profile: ~/.openclaw/browsers/
 - Cron jobs: ~/.openclaw/cron/
 
+## LINE Messaging API 實作細節
+
+### API 遷移背景
+LINE Notify 服務已於 2025/03/31 終止。本專案已完成遷移至 LINE Messaging API。
+
+### 函數介面
+
+| 函數 | 用途 | 參數 |
+|------|------|------|
+| `send_line_message()` | 發送純文字訊息 | channel_access_token, to_user_id, message |
+| `send_notification_message()` | 發送格式化監控通知 | channel_access_token, to_user_id, keywords, summary, report_url |
+
+### 安全設計
+- Token 只能透過環境變數取得（`LINE_CHANNEL_ACCESS_TOKEN`）
+- User ID 只能透過環境變數取得（`LINE_USER_ID`）
+- 已移除 CLI `--token` 參數（避免出現在 process list 和 shell history）
+- Input validation：檢查空值、長度上限（5000 字元）、header injection 防護
+
+### 訊息限制
+- 單則訊息最大長度：5000 字元（LINE Messaging API 限制）
+- Request timeout：10 秒
+- 明確啟用 HTTPS 驗證（`verify=True`）
+
 ## Next Steps
 
-**OpenClaw 應該做的事**（優先順序）:
-1. ✅ 讀取這個 CLAUDE.md，理解專案架構
-2. 📝 完善 Phase 1（補 README, requirements.txt）
-3. 📚 研究 OpenClaw SKILL.md 格式（看官方文件或範例）
-4. 🧪 修正 Phase 2 為 TDD 流程
-5. 🔐 定義安全策略（敏感資訊處理）
-6. 📝 更新 CONTEXT.md，說明修正計畫
+**Phase 3 任務**（優先順序）:
+1. 研究 OpenClaw SKILL.md 格式（看官方文件或範例）
+2. 實作 `skills/threads-monitor/SKILL.md`（主監控 Skill）
+3. 實作 `skills/line-notify/SKILL.md`（LINE 通知 Skill）
+4. 實作 `skills/report-generator/SKILL.md`（戰報生成 Skill）
+5. 測試 Skills 是否能被 OpenClaw 正確讀取和執行
 
-**Claude Code 會做的事**:
-- 審查 OpenClaw 的修正計畫
+**Phase 5 待辦**:
+- 端對端驗證整體流程
+- 健康檢查機制
+- 錯誤通知機制（監控系統壞了誰知道？）
+
+**Claude Code 持續職責**:
+- 審查 OpenClaw 的實作
 - 提供技術建議
 - 確保符合 coding standards
 - 把關安全和測試品質
@@ -305,3 +349,5 @@ except requests.RequestException as e:
 **Architecture**: OpenClaw (系統級) + Python Helper Scripts
 **Collaboration**: Claude Code (Reviewer) + OpenClaw (Executor)
 **No Docker Needed**: OpenClaw 跑在系統上，這個專案是 Skills 和資料
+**LINE API**: LINE Messaging API Push Message（LINE Notify 已於 2025/03/31 終止）
+**Test Status**: 48/48 tests passed, 85%+ coverage

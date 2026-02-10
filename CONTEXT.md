@@ -770,3 +770,91 @@ Phase 2 已經完全完成並通過所有測試，你可以：
 **Test Status**: ✅ 43/43 tests passed
 **Code Quality**: ✅ TDD + Logging + Error Handling + Security
 **Next Phase**: Phase 3 - OpenClaw Skills 實作
+
+---
+
+## LINE 通知功能升級 (2026-02-10)
+
+### API 遷移：LINE Notify -> LINE Messaging API
+
+**背景**：LINE Notify 服務已於 2025/03/31 正式終止。原有的 LINE Notify API 無法再使用，必須遷移至 LINE Messaging API。
+
+**變更內容**：
+
+#### 1. API 遷移完成
+- **舊 API**: `https://notify-api.line.me/api/notify`（已終止）
+- **新 API**: `https://api.line.me/v2/bot/message/push`（LINE Messaging API Push Message）
+- **認證方式**：從 LINE Notify Token 改為 Channel Access Token + User ID
+- **請求格式**：從 form-data 改為 JSON payload
+
+#### 2. 環境變數更新
+```
+# 已移除（LINE Notify 已終止）
+LINE_NOTIFY_TOKEN=xxx
+
+# 新增（LINE Messaging API）
+LINE_CHANNEL_ACCESS_TOKEN=your_channel_access_token
+LINE_USER_ID=U1234567890abcdef1234567890abcdef
+```
+
+#### 3. 新增 `send_notification_message()` 函數
+- 支援結構化的監控通知格式
+- 接受 keywords（列表或字串）、summary、report_url 三個語意參數
+- 自動格式化為可讀的通知訊息：
+  ```
+  🔔 Threads 監控通知
+
+  關鍵字: 政治, 選舉, 投票
+
+  摘要:
+  本週 Threads 熱門討論包含多項選舉相關議題...
+
+  完整報告:
+  https://example.com/report/12345
+  ```
+
+#### 4. 測試結果
+- 新增 5 個 notification message 測試案例
+- line_notify.py 測試總數：20 個
+- 全專案測試總數：48 個（line_notify: 20, filter: 14, dedup: 14）
+- 全部測試通過
+- 測試覆蓋率 85%+
+- 真實 LINE Messaging API 測試成功
+
+#### 5. 文檔更新
+- README.md：新增 LINE 通知功能完整說明、CLI 使用方式、結構化訊息範例
+- .env.example：更新為 LINE Messaging API 的環境變數
+- License 標示修正為 AGPL-3.0
+
+### Phase 2 最終狀態
+
+| 模組 | 測試數 | 通過率 | 覆蓋率 |
+|------|--------|--------|--------|
+| line_notify.py | 20 | 100% | ~85% |
+| filter.py | 14 | 100% | ~95% |
+| dedup.py | 14 | 100% | ~90% |
+| **總計** | **48** | **100%** | **~90%** |
+
+```bash
+$ python3 -m unittest discover -s tests -p "test_*.py" -v
+
+Ran 48 tests in x.xxxs
+
+OK
+```
+
+### 當前專案狀態
+
+- **Phase 1**: 專案骨架與設定檔 -- 已完成
+- **Phase 2**: Python 工具模組 -- 已完成（100%，含 LINE API 遷移）
+- **Phase 3**: OpenClaw Skills -- 待開始
+- **Phase 4**: 已刪除（不需 Docker 部署）
+- **Phase 5**: 驗證與測試 -- 待 Phase 3 完成後進行
+
+### 下一步行動
+
+1. 研究 OpenClaw SKILL.md 格式
+2. 設計並實作 `skills/threads-monitor/SKILL.md`
+3. 設計並實作 `skills/line-notify/SKILL.md`
+4. 設計並實作 `skills/report-generator/SKILL.md`
+5. 端對端驗證整體流程

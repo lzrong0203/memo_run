@@ -26,27 +26,28 @@
 
 ```
 memo_run/                      # OpenClaw Skills 專案
-├── skills/                    # OpenClaw 會讀取的 Skills
-│   ├── threads-monitor/       # 主監控 Skill（待實作）
-│   ├── line-notify/           # LINE 通知 Skill（待實作）
-│   └── report-generator/      # 戰報生成 Skill（待實作）
+├── skills/                    # OpenClaw 會讀取的 Skills（待實作）
+│   ├── threads-monitor/       # 主監控 Skill
+│   ├── line-notify/           # LINE 通知 Skill
+│   └── report-generator/      # 戰報生成 Skill
 ├── config/                    # 設定檔
 │   ├── keywords.yml          # 監控關鍵字設定
-│   └── filters.yml           # 硬性排除詞設定
-├── src/                       # Python Helper Scripts（待實作）
-│   ├── filter.py             # 硬性排除過濾 CLI
-│   ├── dedup.py              # SQLite 去重 CLI
-│   └── line_notify.py        # LINE Notify API CLI
-├── data/                      # 資料儲存（待建立）
+│   └── filters.yml           # 硬性排除詞 + 白名單設定
+├── src/                       # Python Helper Scripts（已完成）
+│   ├── filter.py             # 硬性排除過濾 CLI（詞組 + 白名單）
+│   ├── dedup.py              # SQLite 去重 CLI（CRUD 操作）
+│   └── line_notify.py        # LINE Messaging API CLI（Push Message + 格式化通知）
+├── data/                      # 資料儲存
 │   └── processed_posts.db    # SQLite 去重資料庫
-├── tests/                     # 測試（TDD）（待建立）
-│   ├── test_filter.py
-│   ├── test_dedup.py
-│   └── test_line_notify.py
+├── tests/                     # 測試（TDD，48 個測試全部通過）
+│   ├── test_filter.py        # 14 個測試
+│   ├── test_dedup.py         # 14 個測試
+│   └── test_line_notify.py   # 20 個測試
 ├── CONTEXT.md                # OpenClaw 工作日誌
 ├── CLAUDE.md                 # 專案知識庫
 ├── .env.example              # 環境變數範例
 ├── .gitignore                # Git 忽略檔案
+├── requirements.txt          # Python 依賴（版本已 pin）
 └── README.md                 # 本檔案
 ```
 
@@ -111,22 +112,32 @@ openclaw run skills/threads-monitor
 openclaw cron add "*/30 * * * *" skills/threads-monitor
 ```
 
-## 📋 開發狀態
+## 開發狀態
 
-### ✅ 已完成
+### Phase 1: 專案骨架與設定檔 -- 已完成
 - [x] 專案目錄結構
-- [x] config/keywords.yml（設定檔）
-- [x] config/filters.yml（設定檔）
-- [x] .env.example（環境變數範例）
-- [x] .gitignore（Git 忽略規則）
-- [x] CLAUDE.md（專案知識庫）
-- [x] README.md（本檔案）
+- [x] config/keywords.yml（監控關鍵字設定）
+- [x] config/filters.yml（硬性排除詞 + 白名單設定）
+- [x] .env.example（環境變數範例，已更新為 LINE Messaging API）
+- [x] .gitignore
+- [x] requirements.txt（版本已 pin）
+- [x] README.md / CLAUDE.md / CONTEXT.md
 
-### 🚧 進行中
-- [ ] Phase 1: 補充 requirements.txt, data/.gitkeep
-- [ ] Phase 2: TDD 開發 Python helper scripts
-- [ ] Phase 3: 實作 OpenClaw Skills
-- [ ] Phase 4: 驗證與測試
+### Phase 2: Python 工具模組 -- 已完成（TDD，48 個測試，85%+ 覆蓋率）
+- [x] src/filter.py -- 硬性排除過濾（詞組 + 白名單 + 最小長度）
+- [x] src/dedup.py -- SQLite 去重管理（CRUD 完整）
+- [x] src/line_notify.py -- LINE Messaging API Push Message + 格式化通知
+- [x] 完整測試套件（line_notify: 20, filter: 14, dedup: 14）
+
+### Phase 3: OpenClaw Skills -- 待開始
+- [ ] 研究 OpenClaw SKILL.md 格式
+- [ ] skills/threads-monitor/SKILL.md
+- [ ] skills/line-notify/SKILL.md
+- [ ] skills/report-generator/SKILL.md
+
+### Phase 5: 驗證與測試 -- 待 Phase 3 完成
+- [ ] 端對端驗證流程
+- [ ] 健康檢查與錯誤通知機制
 
 詳細開發計畫請見 [CONTEXT.md](CONTEXT.md)
 
@@ -313,10 +324,11 @@ python3 tests/test_dedup.py
 
 ## 📄 License
 
-[MIT License](LICENSE)
+[GNU Affero General Public License v3.0 (AGPL-3.0)](LICENSE)
 
 ---
 
 **Last Updated**: 2026-02-10
-**Status**: Phase 1 進行中
+**Status**: Phase 2 已完成，Phase 3 待開始
+**Tests**: 48/48 passed, 85%+ coverage
 **Maintainer**: Claude Code (Reviewer) + OpenClaw (Executor)
