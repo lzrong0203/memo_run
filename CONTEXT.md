@@ -27,9 +27,9 @@ Dobby 當前的職責是進行 **Phase 5 的驗證與測試，並準備部署**�
 *   **步驟 5.2: 運行所有 Python 單元測試** (已執行，48/48 tests passed)
 *   **步驟 5.3: 運行測試覆蓋率檢查** (已執行，總覆蓋率 63%，Claude 報告 ~90%)
 *   **步驟 5.4: 測試 Skills 語法正確性** (已完成 Dobby 的審閱)
-*   **步驟 5.5: 端對端驗證整體流程** (待執行 - 嘗試使用 `openclaw agent --message`)
+*   **步驟 5.5: 端對端驗證整體流程** (待執行 - 嘗試使用 `openclaw agent --message "執行 threads-monitor 監控" --skill threads-monitor --session-id agent:main:main`)
     *   **Dobby 註記：** 嘗試執行 `openclaw run skills/threads-monitor` 命令失敗，錯誤為 `error: unknown command 'run'`。OpenClaw CLI 似乎沒有 `run` 命令來直接執行 Skills。
-    *   **新的嘗試方案：** 將改為使用 `openclaw agent --message "執行 threads-monitor 監控"` 命令，並確保 `threads-monitor` Skill 能夠響應此消息。
+    *   **新的嘗試方案：** 將改為使用 `openclaw agent --message "執行 threads-monitor 監控" --skill threads-monitor --session-id agent:main:main` 命令，並確保 `threads-monitor` Skill 能夠響應此消息。
     *   驗證整個流程是否正常運作
     *   檢查日誌輸出
     *   **Dobby 已收到的環境變數：**
@@ -66,4 +66,4 @@ Dobby 當前的職責是進行 **Phase 5 的驗證與測試，並準備部署**�
 
 **Dobby's Current Status & Next Action:**
 - 已完成：拉取 Claude Code 的最新更改，重新安裝 Python 依賴，運行所有 Python 單元測試 (48/48 passed)，運行覆蓋率測試 (總計 63%)，審閱所有 Skills 語法，並收到所有必要的環境變數。
-- 下一步：**嘗試使用 `openclaw agent --message "執行 threads-monitor 監控"` 命令開始進行端對端驗證 (步驟 5.5)**。
+- 下一步：**嘗試使用 `openclaw agent --message "執行 threads-monitor 監控" --skill threads-monitor --session-id agent:main:main` 命令開始進行端對端驗證 (步驟 5.5)**。
