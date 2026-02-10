@@ -31,11 +31,12 @@
     *   **再寫 `src/dedup.py`。** 編寫 Python 腳本，使其通過測試。(已完成)
     *   使其可以作為 CLI 工具被呼叫。(已完成)
 *   **步驟 2.4: 實作 `src/line_notify.py`。**
-    *   **先寫 `tests/test_line_notify.py`。** 定義 `line_notify.py` 預期的行為，包括使用 LINE Notify API 發送訊息。
-    *   **再寫 `src/line_notify.py`。** 編寫 Python 腳本，使其通過測試。
-    *   使其可以作為 CLI 工具被呼叫，接收訊息內容和 LINE Notify Token。
+    *   **先寫 `tests/test_line_notify.py`。** 定義 `line_notify.py` 預期的行為，包括使用 LINE Notify API 發送訊息。(已完成)
+    *   **再寫 `src/line_notify.py`。** 編寫 Python 腳本，使其通過測試。(已完成)
+    *   使其可以作為 CLI 工具被呼叫，接收訊息內容和 LINE Notify Token。(已完成)
 *   **步驟 2.5: 執行測試並檢查覆蓋率。**
-    *   執行 `pytest --cov=src`，確保達到 80% 以上的測試覆蓋率。
+    *   執行 `pytest --cov=src`，確保達到 80% 以上的測試覆蓋率。(已執行，當前覆蓋率為 45%，目標為 80%+)
+    *   **後續動作：** 根據 TDD 的 REFACTOR 階段，為每個 Python 腳本的 CLI 接口和所有錯誤處理路徑添加更多的測試，以逐步提升測試覆蓋率。
 
 ### Phase 3: OpenClaw Skills (待辦 - 研究 SKILL.md 格式，定義安全策略)
 *   **步驟 3.1: 研究 OpenClaw `SKILL.md` 格式。**

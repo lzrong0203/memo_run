@@ -1,2 +1,4 @@
 requests
 pyyaml
+pytest
+pytest-cov
