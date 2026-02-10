@@ -18,7 +18,7 @@ metadata: {"openclaw": {"emoji": "📊", "primaryEnv": "ANTHROPIC_API_KEY", "req
 
 ```bash
 # threads-monitor 發現有效貼文後會自動呼叫
-openclaw run skills/threads-monitor
+openclaw agent --message "執行 threads-monitor 監控" --local
 # → 自動觸發 report-generator
 ```
 
@@ -26,7 +26,7 @@ openclaw run skills/threads-monitor
 
 ```bash
 # 使用範例 JSON 資料測試戰報生成
-openclaw run skills/report-generator --data-file /path/to/sample_data.json
+openclaw agent --message "使用 test/sample_data.json 資料產生戰報" --local
 ```
 
 ## 工作流程
@@ -875,15 +875,15 @@ for (const bigFish of bigFishList) {
 # 使用範例資料測試（不發送通知）
 export REPORT_GENERATOR_TEST_MODE=true
 export REPORT_NO_NOTIFICATION=true
-openclaw run skills/report-generator --data-file test/sample_data.json
+openclaw agent --message "使用 test/sample_data.json 資料產生戰報" --local
 
 # 僅測試 AI 分類（不產生完整報告）
 export REPORT_AI_TEST_ONLY=true
-openclaw run skills/report-generator --data-file test/sample_data.json
+openclaw agent --message "使用 test/sample_data.json 測試 AI 分類" --local
 
 # 使用 mock LLM（不呼叫真實 API）
 export REPORT_USE_MOCK_LLM=true
-openclaw run skills/report-generator --data-file test/sample_data.json
+openclaw agent --message "使用 test/sample_data.json 產生戰報（mock 模式）" --local
 ```
 
 ## 整合測試範例
@@ -925,7 +925,7 @@ export TELEGRAM_CHAT_ID="test_chat_id"
 export REPORT_GENERATOR_TEST_MODE=true
 
 # 3. 執行測試
-openclaw run skills/report-generator --data-file test/sample_data.json
+openclaw agent --message "使用 test/sample_data.json 資料產生戰報" --local
 
 # 4. 驗證輸出
 ls -la data/reports/  # 檢查戰報是否產生
@@ -937,7 +937,7 @@ tail -f ~/.openclaw/logs/report-generator.log  # 檢查日誌
 ```bash
 # 測試單筆貼文分類
 export REPORT_AI_TEST_ONLY=true
-openclaw run skills/report-generator --test-classify "台北市長宣布投入 100 億元改善交通建設"
+openclaw agent --message "分類測試：台北市長宣布投入 100 億元改善交通建設" --local
 
 # 預期輸出:
 # {

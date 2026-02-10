@@ -16,12 +16,12 @@ metadata: {"openclaw": {"emoji": "🔍", "primaryEnv": "ANTHROPIC_API_KEY", "req
 
 ### 手動觸發
 ```bash
-openclaw run skills/threads-monitor
+openclaw agent --message "執行 threads-monitor 監控" --local
 ```
 
 ### 設定定期執行（每 30 分鐘）
 ```bash
-openclaw cron add "*/30 * * * *" skills/threads-monitor
+openclaw cron add "*/30 * * * *" "openclaw agent --message '執行 threads-monitor 監控' --local"
 ```
 
 ## 工作流程
@@ -241,10 +241,10 @@ for (const post of posts) {
 
 ```bash
 # 每 30 分鐘執行一次（避開整點，減少伺服器負載）
-*/30 * * * * openclaw run skills/threads-monitor
+*/30 * * * * openclaw agent --message "執行 threads-monitor 監控" --local
 
 # 或每小時的第 15 和 45 分執行
-15,45 * * * * openclaw run skills/threads-monitor
+15,45 * * * * openclaw agent --message "執行 threads-monitor 監控" --local
 ```
 
 ## 相依 Skills
@@ -258,7 +258,7 @@ for (const post of posts) {
 
 ```bash
 export THREADS_MONITOR_TEST_MODE=true
-openclaw run skills/threads-monitor
+openclaw agent --message "執行 threads-monitor 監控（測試模式）" --local
 ```
 
 ## 維護與監控
