@@ -147,34 +147,129 @@ pipeline.py 會一次完成：
   "duplicate_count": 重複數量,
   "new_count": 有效新貼文數量,
   "total_input": 輸入總數,
-  "summary": "掃描 12 篇 → 過濾 3 篇 → 重複 2 篇 → 有效 7 篇"
+  "summary": "掃描 12 篇 → 過濾 3 篇 → 重複 2 篇 → 有效 7 篇",
+  "needs_more": true/false,
+  "min_valid_posts": 10
 }
 ```
 
-### 步驟 6: AI 語意分析
+### 步驟 5b: 不足則繼續搜尋（最多重試 3 輪）
 
-對 `passed_posts` 中的貼文，直接使用你的 LLM 能力判斷：
-- 內容是否與公共議題相關（政治、社會、交通、民生等）
-- 回答 RELEVANT 或 IRRELEVANT
-- 過濾掉純私人抱怨、閒聊、廣告等內容
+**檢查 pipeline 輸出的 `needs_more` 欄位：**
 
-### 步驟 7: 產出結果並發送通知
+- 若 `needs_more` 為 `false`（有效貼文已達標），直接進入步驟 6
+- 若 `needs_more` 為 `true`（有效貼文不足），執行以下操作：
+  1. 記錄目前累積的 `passed_posts`
+  2. 回到步驟 3 繼續滑動（再滑 5 輪）
+  3. 從新快照中提取**尚未送過 pipeline 的新貼文**
+  4. 將新貼文再次送入 pipeline.py 處理
+  5. 合併新舊 `passed_posts`，重新檢查 `needs_more`
 
-將有效貼文彙整為摘要，包含：
-- 搜尋的關鍵字
-- pipeline 的 summary 統計
-- 每筆 RELEVANT 貼文的摘要、作者、連結
-- 使用以下指令發送 LINE 通知：
+**重試上限：最多額外重試 3 輪。** 若 3 輪後仍不足，以目前收集到的貼文繼續執行。
+
+> **注意**：`MIN_VALID_POSTS` 可透過 `.env` 設定（預設 10）。pipeline.py 會自動讀取此環境變數。
+
+### 步驟 6: AI 語意分析並組成 JSON
+
+對 `passed_posts` 中的每篇貼文，使用你的 LLM 能力進行分析，並將結果組成以下 JSON 格式：
+
+```json
+{
+  "timestamp": "2026-02-11T03:00:00Z",
+  "keywords": ["內湖"],
+  "analyzed_posts": [
+    {
+      "id": "post_001",
+      "content": "貼文原始內容",
+      "author": "作者名稱",
+      "link": "https://www.threads.net/@作者/post/ID",
+      "timestamp": "2026-02-11T02:30:00Z",
+      "analysis": {
+        "categories": ["政治", "社會"],
+        "importance": 8,
+        "summary": "一句話摘要",
+        "entities": {"persons": [], "locations": [], "organizations": []},
+        "reasoning": "判斷理由"
+      }
+    }
+  ],
+  "stats": {
+    "total_searched": 20,
+    "filtered_by_hard_rules": 16,
+    "filtered_by_dedup": 0,
+    "filtered_by_ai": 2,
+    "valid_count": 2
+  }
+}
+```
+
+**分析規則：**
+- 判斷每篇貼文是否與公共議題相關（政治、社會、交通、民生、犯罪等）
+- IRRELEVANT 的貼文（純私人抱怨、閒聊、廣告）**不要放入 analyzed_posts**
+- `importance` 評分 1-10（10 最重要）
+- `categories` 從以下選擇：政治、社會、交通、民生、犯罪、環境、教育、經濟、其他
+- `stats` 中的數字從步驟 5 的 pipeline 結果 + 你過濾的數量計算
+- `id` 可用 `post_001`, `post_002` 等流水號
+
+將完成的 JSON 存為檔案：
 
 ```bash
-python3 /Users/steveopenclaw/.openclaw/workspace/memo_run/src/line_notify.py --message "摘要內容"
+echo '上面的JSON' > /tmp/threads_analysis.json
 ```
+
+### 步驟 7: 生成戰報並發送通知
+
+**7a. 呼叫 report_generator.py 生成戰報 + 上傳 Gist + 產出 LINE 摘要：**
+
+```bash
+python3 /Users/steveopenclaw/.openclaw/workspace/memo_run/src/report_generator.py --input /tmp/threads_analysis.json --format all --gist
+```
+
+這個指令會：
+- 生成 Markdown 戰報並儲存到 `data/reports/`
+- 上傳戰報到 GitHub Gist（取得公開 URL）
+- 輸出 LINE 摘要（含貼文連結 + Gist 戰報連結）
+
+**輸出範例：**
+```
+報告已儲存: data/reports/report_20260211_030000.md
+Gist URL: https://gist.github.com/xxx/yyy
+
+=== LINE 摘要 ===
+🔔 Threads 監控通知
+📊 掃描 20 筆 → 有效 2 筆
+🔑 關鍵字: 內湖
+
+🐟 大魚警報（1 則）:
+[9/10] 內湖驚傳隨機擄童事件
+→ https://www.threads.net/@user/post/xxx
+
+📋 其他重點:
+• [政治] 內湖南港議員提名
+  → https://www.threads.net/@user/post/yyy
+
+📄 完整戰報: https://gist.github.com/xxx/yyy
+
+=== Telegram 摘要 ===
+...
+```
+
+**7b. 複製「=== LINE 摘要 ===」區塊的內容，用 line_notify.py 發送：**
+
+```bash
+python3 /Users/steveopenclaw/.openclaw/workspace/memo_run/src/line_notify.py --message "上面 LINE 摘要的完整文字"
+```
+
+> **重要**：LINE 摘要內容必須完整複製，包含所有貼文連結和 Gist 戰報連結。
 
 ## 環境變數需求
 
 ```bash
 # 必需（OpenClaw 使用）
 ANTHROPIC_API_KEY=sk-ant-xxx
+
+# Pipeline 最少需要的有效貼文數，不足則繼續滑動搜尋（預設 10）
+MIN_VALID_POSTS=10
 
 # 可選（僅首次登入 Threads 時需要，之後可刪除）
 THREADS_USERNAME=your_username
@@ -265,7 +360,7 @@ openclaw agent --message "執行 threads-monitor 監控（測試模式）" --loc
 
 ---
 
-**版本**: 2.0.0
+**版本**: 2.2.0
 **最後更新**: 2026-02-11
 **作者**: Claude Code + OpenClaw
 **License**: AGPL-3.0

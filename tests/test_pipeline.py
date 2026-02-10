@@ -196,6 +196,60 @@ class TestProcessPosts(unittest.TestCase):
         process_posts(posts, self.filter_config, self.db_path, self.scoring_config)
         self.assertEqual(json.dumps(posts), original)
 
+    # ========== MIN_VALID_POSTS / needs_more ==========
+
+    def test_needs_more_true_when_below_min(self):
+        """有效貼文不足 min_valid_posts 時，needs_more 應為 True"""
+        posts = [self._make_post(VALID_CONTENT_1)]
+        result = process_posts(posts, self.filter_config, self.db_path, self.scoring_config,
+                               min_valid_posts=5)
+        self.assertTrue(result["needs_more"])
+        self.assertEqual(result["min_valid_posts"], 5)
+
+    def test_needs_more_false_when_meets_min(self):
+        """有效貼文達到 min_valid_posts 時，needs_more 應為 False"""
+        posts = [
+            self._make_post(VALID_CONTENT_1, link="https://www.threads.net/@a/post/1"),
+            self._make_post(VALID_CONTENT_2, link="https://www.threads.net/@b/post/2"),
+            self._make_post(VALID_CONTENT_3, link="https://www.threads.net/@c/post/3"),
+        ]
+        result = process_posts(posts, self.filter_config, self.db_path, self.scoring_config,
+                               min_valid_posts=3)
+        self.assertFalse(result["needs_more"])
+
+    def test_needs_more_false_when_exceeds_min(self):
+        """有效貼文超過 min_valid_posts 時，needs_more 應為 False"""
+        posts = [
+            self._make_post(VALID_CONTENT_1, link="https://www.threads.net/@a/post/1"),
+            self._make_post(VALID_CONTENT_2, link="https://www.threads.net/@b/post/2"),
+            self._make_post(VALID_CONTENT_3, link="https://www.threads.net/@c/post/3"),
+        ]
+        result = process_posts(posts, self.filter_config, self.db_path, self.scoring_config,
+                               min_valid_posts=2)
+        self.assertFalse(result["needs_more"])
+
+    def test_needs_more_default_is_10(self):
+        """預設 min_valid_posts 為 10"""
+        posts = [self._make_post(VALID_CONTENT_1)]
+        result = process_posts(posts, self.filter_config, self.db_path, self.scoring_config)
+        self.assertEqual(result["min_valid_posts"], 10)
+        self.assertTrue(result["needs_more"])
+
+    def test_needs_more_with_zero_valid(self):
+        """所有貼文都被過濾時，needs_more 應為 True"""
+        posts = [self._make_post("短")]
+        result = process_posts(posts, self.filter_config, self.db_path, self.scoring_config,
+                               min_valid_posts=1)
+        self.assertTrue(result["needs_more"])
+        self.assertEqual(result["new_count"], 0)
+
+    def test_needs_more_in_output_keys(self):
+        """輸出應包含 needs_more 和 min_valid_posts 欄位"""
+        posts = [self._make_post(VALID_CONTENT_1)]
+        result = process_posts(posts, self.filter_config, self.db_path, self.scoring_config)
+        self.assertIn("needs_more", result)
+        self.assertIn("min_valid_posts", result)
+
     # ========== Error Handling ==========
 
     def test_missing_filter_config(self):

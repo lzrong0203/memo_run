@@ -14,7 +14,7 @@ import json
 import logging
 import os
 import sys
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +23,15 @@ _PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEFAULT_FILTER_CONFIG = os.path.join(_PROJECT_ROOT, "config", "filters.yml")
 DEFAULT_DEDUP_DB = os.path.join(_PROJECT_ROOT, "data", "processed_posts.db")
 DEFAULT_SCORING_CONFIG = os.path.join(_PROJECT_ROOT, "config", "scoring.yml")
+DEFAULT_MIN_VALID_POSTS = 10
+
+
+def _get_min_valid_posts() -> int:
+    """從環境變數取得 MIN_VALID_POSTS，預設 10。"""
+    try:
+        return max(1, int(os.environ.get("MIN_VALID_POSTS", DEFAULT_MIN_VALID_POSTS)))
+    except (ValueError, TypeError):
+        return DEFAULT_MIN_VALID_POSTS
 
 
 def process_posts(
@@ -30,6 +39,7 @@ def process_posts(
     filter_config_path: str = DEFAULT_FILTER_CONFIG,
     dedup_db_path: str = DEFAULT_DEDUP_DB,
     scoring_config_path: str = DEFAULT_SCORING_CONFIG,
+    min_valid_posts: Optional[int] = None,
 ) -> Dict:
     """
     批次處理貼文：filter → dedup → scoring。
@@ -39,16 +49,21 @@ def process_posts(
         filter_config_path: filters.yml 路徑。
         dedup_db_path: SQLite 去重資料庫路徑。
         scoring_config_path: scoring.yml 路徑。
+        min_valid_posts: 最少需要的有效貼文數（None 則讀取環境變數 MIN_VALID_POSTS，預設 10）。
 
     Returns:
         Dict: {
             passed_posts, filtered_count, duplicate_count,
-            new_count, total_input, summary
+            new_count, total_input, summary,
+            needs_more, min_valid_posts
         }
     """
     from filter import load_filter_config, should_filter_content
     from dedup import DedupManager
     from scoring import load_scoring_config, apply_scoring_bonus
+
+    if min_valid_posts is None:
+        min_valid_posts = _get_min_valid_posts()
 
     total_input = len(posts)
     filtered_count = 0
@@ -111,6 +126,8 @@ def process_posts(
         f"有效 {new_count} 篇"
     )
 
+    needs_more = new_count < min_valid_posts
+
     return {
         "passed_posts": passed_posts,
         "filtered_count": filtered_count,
@@ -118,6 +135,8 @@ def process_posts(
         "new_count": new_count,
         "total_input": total_input,
         "summary": summary,
+        "needs_more": needs_more,
+        "min_valid_posts": min_valid_posts,
     }
 
 
