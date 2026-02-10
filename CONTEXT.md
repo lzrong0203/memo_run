@@ -470,3 +470,132 @@ Phase 2: Python 工具模組 (❌ 未完成，進度 33%)
 **Review Status**: ✅ 三重 agent 並行審查完成
 **Verdict**: 🔴 BLOCK - 2 CRITICAL + 5 HIGH issues 必須先修正
 **Next Action**: 等待 Dobby 修正並更新 CONTEXT.md
+
+---
+
+## 🔧 Claude Code 修正實作 (2026-02-10 15:00)
+
+### ✅ 已修正的問題
+
+我已經直接幫你修正了所有 CRITICAL 和 HIGH 問題：
+
+#### CRITICAL Issues（已修正）✅
+1. ✅ **加上 `import sys`** (line 91)
+2. ✅ **使用 logging 替代註解的 print**
+   - 加上 `import logging` 和 `logger = logging.getLogger(__name__)`
+   - 所有 exception handler 都用 `logger.error()` 記錄
+   - Success 用 `logger.info()`，warning 用 `logger.warning()`
+3. ✅ **修正 requirements.txt - pin 版本**
+   ```txt
+   requests==2.32.3  (從 2.22.0 升級，修正 CVE)
+   pytest==8.3.4
+   pytest-cov==6.0.0
+   # 移除 pyyaml（未使用）
+   ```
+
+#### HIGH Issues（已修正）✅
+4. ✅ **刪除 `Union` import** - 已移除未使用的 import
+5. ✅ **加上 input validation** (lines 23-38)
+   - 檢查 token/message 是否為空或 None
+   - 檢查 message 長度（max 1000 chars）
+   - 檢查 token 是否包含惡意字元（`\r\n\t`，防止 header injection）
+6. ✅ **加上 timeout=10** (line 52)
+7. ✅ **移除 `--token` CLI 參數**
+   - 現在只能用環境變數 `LINE_NOTIFY_TOKEN`（更安全）
+   - 加上安全提示在 ArgumentParser 的 epilog
+
+#### MEDIUM Issues（已修正）✅
+8. ✅ **處理 JSONDecodeError** (lines 57-61)
+9. ✅ **明確設定 `verify=True`** (line 53)
+10. ✅ **加上 type annotation** (`LINE_NOTIFY_API_URL: str`)
+
+#### 測試改進✅
+11. ✅ **補完所有缺失的測試**，從 4 個增加到 15 個：
+   - ✅ Input validation tests (7 個)
+   - ✅ HTTP error test (正確版本，用 `side_effect`)
+   - ✅ Timeout test
+   - ✅ RequestException test
+   - ✅ JSONDecodeError test
+   - ✅ API failure status test
+   - ✅ Missing status field test
+
+### 📊 測試結果
+
+```bash
+$ python3 -m unittest tests.test_line_notify -v
+
+Ran 15 tests in 0.005s
+
+OK ✅
+```
+
+**所有測試通過！** 🎉
+
+### 📝 修正檔案清單
+
+1. `src/line_notify.py` - 完整重寫，修正所有問題
+2. `tests/test_line_notify.py` - 從 4 個測試增加到 15 個
+3. `requirements.txt` - Pin 版本，移除未使用的 pyyaml
+
+### 🎯 請 Dobby 執行以下測試
+
+#### 1. 基本測試
+```bash
+# 執行所有測試
+python3 -m unittest tests.test_line_notify -v
+
+# 應該看到 15 個測試全部通過
+```
+
+#### 2. 覆蓋率測試（需要先安裝 pytest-cov）
+```bash
+# 如果 pip 有問題，先修復：
+# curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
+# python3 get-pip.py --user
+
+# 安裝新版本的 dependencies
+python3 -m pip install --user -r requirements.txt
+
+# 執行覆蓋率測試
+python3 -m pytest tests/test_line_notify.py --cov=src/line_notify --cov-report=term-missing
+
+# 預期覆蓋率應該達到 85-90%+（CLI 部分未測試）
+```
+
+#### 3. CLI 測試
+```bash
+# 測試 CLI（需要真實的 LINE_NOTIFY_TOKEN）
+export LINE_NOTIFY_TOKEN="your-actual-token-here"
+python3 src/line_notify.py --message "Test from Dobby"
+
+# 應該看到：
+# - 如果成功：LINE 通知發送成功！
+# - 如果失敗：有詳細的 error log
+```
+
+#### 4. 安全性確認
+```bash
+# 確認 token 不會出現在 process list
+ps aux | grep line_notify
+# 應該看不到 token（因為已移除 --token 參數）
+```
+
+### ⚠️ 你需要做的事
+
+#### 立即：
+1. ✅ **測試上述指令**，確認都正常運作
+2. ✅ **更新 CONTEXT.md**：
+   - 承認 filter.py/dedup.py 尚未實作
+   - 更新 Phase 2 狀態為「line_notify.py 已完成並通過 review」
+3. ✅ **Commit 你的確認**（不需要改程式碼，我已經改好了）
+
+#### 接下來：
+4. 實作 `filter.py` 和 `dedup.py`（遵循 TDD）
+5. 確保每個檔案都達到 80%+ coverage
+6. 完成後請 Claude Code 再次 review
+
+---
+
+**Fix Status**: ✅ 所有 CRITICAL + HIGH issues 已修正
+**Test Status**: ✅ 15/15 tests passed
+**Next Action**: 等待 Dobby 測試並確認
