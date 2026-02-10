@@ -1,0 +1,113 @@
+{
+  "timestamp": "2026-02-10T23:48:00+08:00",
+  "keywords": ["黃國昌"],
+  "analyzed_posts": [
+    {
+      "id": "DUkqrdOEw67",
+      "keyword": "黃國昌",
+      "content": "呱吉就出來解釋 是擋到你家祖墳是不是 還被你抹跪舔 黃國昌各種荒謬都挺得下去 可悲草",
+      "author": "ericpi0331",
+      "link": "https://www.threads.net/@ericpi0331/post/DUkqrdOEw67",
+      "timestamp": "2026-02-10T18:48:00+08:00",
+      "analysis": {
+        "categories": ["政治"],
+        "importance": 5,
+        "summary": "網友批評黃國昌各種荒謬行為，質疑其支持者立場。",
+        "entities": {
+          "persons": ["黃國昌", "呱吉"],
+          "locations": [],
+          "organizations": [],
+          "events": []
+        },
+        "reasoning": "個人政治評論，影響力有限。"
+      }
+    },
+    {
+      "id": "DUlTqjvEjfp",
+      "keyword": "黃國昌",
+      "content": "你說他解釋了什麼？因為黃還要競選公職，所以直播收抖內違法？是嗎？有違法嗎？擋到你家祖墳真的是道理邏輯講不贏的人很愛用的話。修法讓獄中大老快速轉外役監擋到你祖墳嗎。什麼鍋配什麼蓋。",
+      "author": "dr_bingo_go",
+      "link": "https://www.threads.net/@dr_bingo_go/post/DUlTqjvEjfp",
+      "timestamp": "2026-02-10T23:47:00+08:00",
+      "analysis": {
+        "categories": ["政治"],
+        "importance": 6,
+        "summary": "針對黃國昌直播收抖內是否違法展開辯論，涉及競選公職與政治獻金議題。",
+        "entities": {
+          "persons": ["黃國昌", "蔡英文"],
+          "locations": [],
+          "organizations": [],
+          "events": ["直播收抖內爭議", "外役監修法"]
+        },
+        "reasoning": "涉及政治獻金合法性討論，有一定公共議題價值。"
+      }
+    },
+    {
+      "id": "DUj9zPxkx8r",
+      "keyword": "黃國昌",
+      "content": "黃國昌針對高金素梅案表示：狀況不明朗，不便做太多評論。但他偏偏要補上一句：呼籲司法不要成為執政者打壓異己的工具。這句話的邏輯完全自相矛盾。如果你連案情都還不明朗，你是基於什麼基礎去擔心這是政治打壓？這種發言既沒有對證據的尊重，更是在案情未明之前，就先對司法機關貼上標籤，預設了被害者立場，噁心至極。",
+      "author": "hello_chingya",
+      "link": "https://www.threads.net/@hello_chingya/post/DUj9zPxkx8r",
+      "timestamp": "2026-02-10T11:48:00+08:00",
+      "analysis": {
+        "categories": ["政治", "社會"],
+        "importance": 9,
+        "summary": "批評黃國昌針對高金素梅案的發言邏輯矛盾，質疑其預設司法打壓立場。5138讚、297回覆，引發大量討論。",
+        "entities": {
+          "persons": ["黃國昌", "高金素梅"],
+          "locations": [],
+          "organizations": ["司法機關"],
+          "events": ["高金素梅案"]
+        },
+        "reasoning": "涉及立委對司法案件的政治表態，高互動量顯示社會關注度極高，屬重大政治議題。"
+      }
+    },
+    {
+      "id": "DUlC0tuj0Bu",
+      "keyword": "黃國昌",
+      "content": "台灣人選舉選半天，還弄出一位電子腳鐐的人當國家治理學院院長。還有一位黃老師，只是讀法律的，卻可以提出他認為理想的軍購預算。他有當過什麼軍隊連長嗎？這個外行人說要買什麼武器能保衛台灣，你能信嗎？",
+      "author": "laydan123456",
+      "link": "https://www.threads.net/@laydan123456/post/DUlC0tuj0Bu",
+      "timestamp": "2026-02-10T21:48:00+08:00",
+      "analysis": {
+        "categories": ["政治", "社會"],
+        "importance": 7,
+        "summary": "質疑黃國昌以法律背景提出軍購預算的專業性，批評台灣政治亂象並與日本選舉對比。",
+        "entities": {
+          "persons": ["黃國昌", "柯文哲"],
+          "locations": ["台灣", "日本"],
+          "organizations": ["國家治理學院"],
+          "events": ["軍購預算爭議"]
+        },
+        "reasoning": "涉及國防預算專業性質疑和政治人物批評，屬中等重要性公共議題。"
+      }
+    },
+    {
+      "id": "DUlTiwhEx_v",
+      "keyword": "黃國昌",
+      "content": "柯文哲、黃國昌、鄭麗文，這三個人根本是台灣的病痛、是害群之馬。柯文哲家己貪污收錢、臭名萬世。黃國昌做奸臣的走狗，專門破壞國防、出賣台灣的安全。鄭麗文以前食民進黨的米，現時竟然變做熱烈支持習近平的賣國賊！",
+      "author": "chakomaru_14",
+      "link": "https://www.threads.net/@chakomaru_14/post/DUlTiwhEx_v",
+      "timestamp": "2026-02-10T23:46:00+08:00",
+      "analysis": {
+        "categories": ["政治", "社會"],
+        "importance": 8,
+        "summary": "嚴厲批評柯文哲貪污、黃國昌破壞國防、鄭麗文親中，呼籲台灣人團結。",
+        "entities": {
+          "persons": ["柯文哲", "黃國昌", "鄭麗文", "習近平"],
+          "locations": ["台灣"],
+          "organizations": ["民進黨"],
+          "events": ["貪污案", "國防議題"]
+        },
+        "reasoning": "涉及多位政治人物嚴重指控（貪污、賣國），社會批判力度大，具政治敏感性。"
+      }
+    }
+  ],
+  "stats": {
+    "total_searched": 6,
+    "filtered_by_hard_rules": 1,
+    "filtered_by_dedup": 0,
+    "filtered_by_ai": 0,
+    "valid_count": 5
+  }
+}
