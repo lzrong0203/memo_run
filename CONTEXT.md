@@ -23,13 +23,13 @@
 *   **步驟 2.1: 準備測試環境。**
     *   我將創建 `tests/` 資料夾。(已完成)
 *   **步驟 2.2: 實作 `src/filter.py`。**
-    *   **先寫 `tests/test_filter.py`。** 定義 `filter.py` 預期的行為，包括硬性排除詞過濾。
-    *   **再寫 `src/filter.py`。** 編寫 Python 腳本，使其通過測試。
-    *   使其可以作為 CLI 工具被呼叫。
+    *   **先寫 `tests/test_filter.py`。** 定義 `filter.py` 預期的行為，包括硬性排除詞過濾。(已完成)
+    *   **再寫 `src/filter.py`。** 編寫 Python 腳本，使其通過測試。(已完成)
+    *   使其可以作為 CLI 工具被呼叫。(已完成)
 *   **步驟 2.3: 實作 `src/dedup.py`。**
-    *   **先寫 `tests/test_dedup.py`。** 定義 `dedup.py` 預期的行為，包括使用 SQLite 進行去重。
-    *   **再寫 `src/dedup.py`。** 編寫 Python 腳本，使其通過測試。
-    *   使其可以作為 CLI 工具被呼叫。
+    *   **先寫 `tests/test_dedup.py`。** 定義 `dedup.py` 預期的行為，包括使用 SQLite 進行去重。(已完成)
+    *   **再寫 `src/dedup.py`。** 編寫 Python 腳本，使其通過測試。(已完成)
+    *   使其可以作為 CLI 工具被呼叫。(已完成)
 *   **步驟 2.4: 實作 `src/line_notify.py`。**
     *   **先寫 `tests/test_line_notify.py`。** 定義 `line_notify.py` 預期的行為，包括使用 LINE Notify API 發送訊息。
     *   **再寫 `src/line_notify.py`。** 編寫 Python 腳本，使其通過測試。
