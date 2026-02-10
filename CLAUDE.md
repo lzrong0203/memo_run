@@ -256,13 +256,13 @@ except requests.RequestException as e:
 - [x] 測試覆蓋率 85%+（48 個測試全部通過）
 ```
 
-### Phase 3: OpenClaw Skills -- 待開始
+### Phase 3: OpenClaw Skills -- 已完成
 ```markdown
-- [ ] 研究 OpenClaw SKILL.md 格式
-- [ ] skills/threads-monitor/SKILL.md
-- [ ] skills/line-notify/SKILL.md
-- [ ] skills/report-generator/SKILL.md
-- [ ] 測試 Skills 是否能被 OpenClaw 讀取
+- [x] 研究 OpenClaw SKILL.md 格式（YAML frontmatter + Markdown）
+- [x] skills/threads-monitor/SKILL.md（348 lines，主監控流程）
+- [x] skills/line-notify/SKILL.md（437 lines，LINE 通知包裝）
+- [x] skills/report-generator/SKILL.md（979 lines，AI 分類與戰報生成）
+- [ ] 測試 Skills 是否能被 OpenClaw 讀取（待驗證）
 ```
 
 ### Phase 4: Docker 部署 -- 已刪除

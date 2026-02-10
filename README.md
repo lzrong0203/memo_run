@@ -129,11 +129,11 @@ openclaw cron add "*/30 * * * *" skills/threads-monitor
 - [x] src/line_notify.py -- LINE Messaging API Push Message + 格式化通知
 - [x] 完整測試套件（line_notify: 20, filter: 14, dedup: 14）
 
-### Phase 3: OpenClaw Skills -- 待開始
-- [ ] 研究 OpenClaw SKILL.md 格式
-- [ ] skills/threads-monitor/SKILL.md
-- [ ] skills/line-notify/SKILL.md
-- [ ] skills/report-generator/SKILL.md
+### Phase 3: OpenClaw Skills -- 已完成
+- [x] 研究 OpenClaw SKILL.md 格式（YAML frontmatter + Markdown）
+- [x] skills/threads-monitor/SKILL.md（348 lines，Threads 監控主流程）
+- [x] skills/line-notify/SKILL.md（437 lines，LINE 通知包裝）
+- [x] skills/report-generator/SKILL.md（979 lines，AI 分類與戰報生成）
 
 ### Phase 5: 驗證與測試 -- 待 Phase 3 完成
 - [ ] 端對端驗證流程
@@ -329,6 +329,7 @@ python3 tests/test_dedup.py
 ---
 
 **Last Updated**: 2026-02-10
-**Status**: Phase 2 已完成，Phase 3 待開始
+**Status**: Phase 3 已完成，Phase 5 待開始
 **Tests**: 48/48 passed, 85%+ coverage
+**Skills**: 3 個 SKILL.md (1764 lines)
 **Maintainer**: Claude Code (Reviewer) + OpenClaw (Executor)
