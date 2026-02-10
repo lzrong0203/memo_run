@@ -257,7 +257,7 @@ def generate_markdown_report(data: Dict) -> str:
     return "\n".join(lines)
 
 
-def generate_line_summary(data: Dict) -> str:
+def generate_line_summary(data: Dict, report_url: Optional[str] = None) -> str:
     """
     從監控資料生成 LINE 通知用的精簡版文字（含貼文 URL）。
 
@@ -265,6 +265,7 @@ def generate_line_summary(data: Dict) -> str:
 
     Args:
         data: 完整的監控資料字典。
+        report_url: 完整戰報的連結（如 Gist URL）。
 
     Returns:
         str: 適合 LINE 發送的純文字摘要（含 URL）。
@@ -318,10 +319,15 @@ def generate_line_summary(data: Dict) -> str:
             parts.append(url_line)
             current_text = "\n".join(parts)
 
+    # 報告連結
+    if report_url:
+        parts.append("")
+        parts.append(f"📄 完整戰報: {report_url}")
+
     return "\n".join(parts)
 
 
-def generate_telegram_summary(data: Dict) -> str:
+def generate_telegram_summary(data: Dict, report_url: Optional[str] = None) -> str:
     """
     從監控資料生成 Telegram 通知用的 Markdown 格式文字（含貼文 URL）。
 
@@ -329,6 +335,7 @@ def generate_telegram_summary(data: Dict) -> str:
 
     Args:
         data: 完整的監控資料字典。
+        report_url: 完整戰報的連結（如 Gist URL）。
 
     Returns:
         str: 適合 Telegram 發送的 Markdown 文字（含 URL）。
@@ -385,7 +392,64 @@ def generate_telegram_summary(data: Dict) -> str:
             parts.append(entry)
             current_text = "\n".join(parts)
 
+    # 報告連結
+    if report_url:
+        parts.append("")
+        parts.append(f"📄 [完整戰報]({report_url})")
+
     return "\n".join(parts)
+
+
+def upload_to_gist(report_content: str, filename: str = "report.md",
+                   description: str = "Threads 輿情戰報") -> Optional[str]:
+    """
+    將戰報上傳到 GitHub Gist，回傳公開 URL。
+
+    使用環境變數 GITHUB_GIST_TOKEN 進行認證。
+
+    Args:
+        report_content: 報告內容。
+        filename: Gist 檔案名稱。
+        description: Gist 描述。
+
+    Returns:
+        str 或 None: Gist URL，失敗時回傳 None。
+    """
+    import requests
+
+    token = os.environ.get("GITHUB_GIST_TOKEN")
+    if not token:
+        logger.error("缺少 GITHUB_GIST_TOKEN 環境變數")
+        return None
+
+    headers = {
+        "Authorization": f"token {token}",
+        "Accept": "application/vnd.github+json",
+    }
+
+    payload = {
+        "description": description,
+        "public": True,
+        "files": {
+            filename: {"content": report_content}
+        }
+    }
+
+    try:
+        response = requests.post(
+            "https://api.github.com/gists",
+            headers=headers,
+            json=payload,
+            timeout=15
+        )
+        response.raise_for_status()
+        gist_url = response.json().get("html_url", "")
+        logger.info("Gist 上傳成功: %s", gist_url)
+        return gist_url
+
+    except requests.exceptions.RequestException as e:
+        logger.error("Gist 上傳失敗: %s", e)
+        return None
 
 
 def save_report(report_content: str, reports_dir: str = DEFAULT_REPORTS_DIR,
@@ -421,14 +485,16 @@ def save_report(report_content: str, reports_dir: str = DEFAULT_REPORTS_DIR,
     return filepath
 
 
-def generate_all_outputs(data: Dict, reports_dir: str = DEFAULT_REPORTS_DIR
+def generate_all_outputs(data: Dict, reports_dir: str = DEFAULT_REPORTS_DIR,
+                         upload_gist: bool = False
                          ) -> Optional[Dict[str, str]]:
     """
-    一次性生成所有輸出並儲存報告檔案。
+    一次性生成所有輸出並儲存報告檔案。可選上傳 Gist。
 
     Args:
         data: 完整的監控資料字典。
         reports_dir: 報告儲存目錄。
+        upload_gist: 是否上傳到 GitHub Gist。
 
     Returns:
         Dict[str, str] 或 None: 包含所有輸出的字典，資料無效時回傳 None。
@@ -439,8 +505,6 @@ def generate_all_outputs(data: Dict, reports_dir: str = DEFAULT_REPORTS_DIR
         return None
 
     markdown_report = generate_markdown_report(data)
-    line_summary = generate_line_summary(data)
-    telegram_summary = generate_telegram_summary(data)
 
     report_path = save_report(
         markdown_report,
@@ -448,11 +512,27 @@ def generate_all_outputs(data: Dict, reports_dir: str = DEFAULT_REPORTS_DIR
         timestamp=data.get("timestamp")
     )
 
+    # 上傳 Gist（可選）
+    gist_url = None
+    if upload_gist:
+        filename = os.path.basename(report_path)
+        ts = data.get("timestamp", "")[:10]
+        keywords = ", ".join(data.get("keywords", []))
+        gist_url = upload_to_gist(
+            markdown_report,
+            filename=filename,
+            description=f"Threads 輿情戰報 - {keywords} ({ts})"
+        )
+
+    line_summary = generate_line_summary(data, report_url=gist_url)
+    telegram_summary = generate_telegram_summary(data, report_url=gist_url)
+
     return {
         "report_path": report_path,
         "markdown_report": markdown_report,
         "line_summary": line_summary,
         "telegram_summary": telegram_summary,
+        "gist_url": gist_url,
     }
 
 
@@ -472,6 +552,8 @@ if __name__ == '__main__':
     parser.add_argument("--output-dir", default=DEFAULT_REPORTS_DIR, help="報告輸出目錄")
     parser.add_argument("--format", choices=["all", "markdown", "line", "telegram"],
                         default="all", dest="output_format", help="輸出格式")
+    parser.add_argument("--gist", action="store_true",
+                        help="上傳戰報到 GitHub Gist 並在摘要中附上連結")
 
     args = parser.parse_args()
 
@@ -494,18 +576,29 @@ if __name__ == '__main__':
 
     # Generate
     if args.output_format == "line":
-        print(generate_line_summary(data))
+        gist_url = None
+        if args.gist:
+            report = generate_markdown_report(data)
+            gist_url = upload_to_gist(report)
+        print(generate_line_summary(data, report_url=gist_url))
     elif args.output_format == "telegram":
-        print(generate_telegram_summary(data))
+        gist_url = None
+        if args.gist:
+            report = generate_markdown_report(data)
+            gist_url = upload_to_gist(report)
+        print(generate_telegram_summary(data, report_url=gist_url))
     elif args.output_format == "markdown":
         report = generate_markdown_report(data)
         path = save_report(report, reports_dir=args.output_dir,
                            timestamp=data.get("timestamp"))
         print(f"報告已儲存: {path}")
     else:  # all
-        outputs = generate_all_outputs(data, reports_dir=args.output_dir)
+        outputs = generate_all_outputs(data, reports_dir=args.output_dir,
+                                       upload_gist=args.gist)
         if outputs:
             print(f"報告已儲存: {outputs['report_path']}")
+            if outputs.get("gist_url"):
+                print(f"Gist URL: {outputs['gist_url']}")
             print()
             print("=== LINE 摘要 ===")
             print(outputs["line_summary"])
