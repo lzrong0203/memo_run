@@ -572,6 +572,14 @@ if __name__ == '__main__':
     import argparse
     import sys
 
+    # 自動載入 .env 檔案（支援 OpenClaw exec 環境）
+    try:
+        from dotenv import load_dotenv
+        env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.env')
+        load_dotenv(env_path)
+    except ImportError:
+        pass
+
     logging.basicConfig(
         level=logging.INFO,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'

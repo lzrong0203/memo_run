@@ -151,6 +151,15 @@ if __name__ == '__main__':
     import os
     import sys
 
+    # 自動載入 .env 檔案（支援 OpenClaw exec 環境）
+    try:
+        from dotenv import load_dotenv
+        # 嘗試從專案根目錄載入 .env
+        env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.env')
+        load_dotenv(env_path)
+    except ImportError:
+        pass  # python-dotenv 未安裝時跳過
+
     # Configure logging for CLI usage
     logging.basicConfig(
         level=logging.INFO,
