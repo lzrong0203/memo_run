@@ -208,7 +208,7 @@ except requests.RequestException as e:
 
 2. ~~**Phase 2 缺少 TDD**~~ -- 已完成
    - ✅ 已改為 test-first 流程
-   - ✅ 48 個測試全部通過，覆蓋率 85%+
+   - ✅ 48 個測試全部通過，覆蓋率 63%（核心邏輯接近 100%，CLI 區塊未覆蓋拉低整體數字）
 
 3. ~~**安全策略不完整**~~ -- 已改善
    - ✅ API tokens 從環境變數讀取（已移除 CLI --token 參數）
@@ -220,19 +220,33 @@ except requests.RequestException as e:
    - ✅ 所有模組已加入 logging
    - ✅ 完整的 exception handling
 
+### 已解決的端對端問題（2026-02-10 修正完畢）
+
+5. ~~**Skill 格式不明確**~~ -- 已解決
+   - ✅ SKILL.md 格式：YAML frontmatter + Markdown（已驗證）
+   - ✅ Skills 安裝方式：symlink 到 `~/.openclaw/workspace/skills/`
+   - ✅ 3/3 Skills 狀態 Ready
+
+6. ~~**OpenClaw CLI 命令錯誤**~~ -- 已修正
+   - ✅ `openclaw run` 不存在 → 改為 `openclaw agent --message --local`
+   - ✅ `--skill` 選項不存在 → OpenClaw 自動匹配 Skills
+   - ✅ `--channel telegram` 必須指定（否則預設 whatsapp 會報錯）
+
+7. ~~**Agent 行為問題**~~ -- 已修正
+   - ✅ Agent 委派子 agent 導致失敗 → SKILL.md 加上「不要委派子 agent，直接執行」
+   - ✅ Browser 開新 tab 導致失敗 → SKILL.md 加上「在同一 tab 中操作」
+   - ✅ Browser profile 錯誤 → 設定 `browser.defaultProfile=openclaw`
+   - ✅ `.env` source 問題 → token 值加上單引號，使用 `set -a` export
+   - ✅ `keywords.yml` 範例過時 → 更新為實際格式（含 enabled 欄位）
+
 ### 待解決的問題
 
-5. **Skill 格式不明確** (Phase 3)
-   - ⚠️ SKILL.md 的格式規範是什麼？
-   - ⚠️ OpenClaw 如何讀取和執行 SKILL.md？
-   - 建議：先研究 OpenClaw 官方文件或範例
-
-6. **合規性風險**
+8. **合規性風險**
    - Threads 服務條款是否允許自動化？
    - Rate limiting 策略夠嗎？（目前 7 秒延遲）
    - 建議：加入 User-Agent 輪換、隨機延遲
 
-7. **健康檢查**
+9. **健康檢查**
    - 缺少健康檢查（如果 Threads 改版怎麼辦？）
    - 缺少錯誤通知（監控系統壞了誰知道？）
 
@@ -332,19 +346,41 @@ LINE Notify 服務已於 2025/03/31 終止。本專案已完成遷移至 LINE Me
 - Request timeout：10 秒
 - 明確啟用 HTTPS 驗證（`verify=True`）
 
+## OpenClaw 整合注意事項
+
+### CLI 命令語法
+```bash
+# 正確的 agent 執行命令
+openclaw agent --message "執行 threads-monitor 監控" --local --channel telegram --session-id threads-monitor-manual
+
+# 定期排程
+openclaw cron add "*/30 * * * *" "openclaw agent --message '執行 threads-monitor 監控' --local --channel telegram"
+```
+
+### Skills 安裝
+- 專案 Skills 位置: `memo_run/skills/`
+- OpenClaw 讀取位置: `~/.openclaw/workspace/skills/`
+- 安裝方式: symlink（`ln -s` 專案 skills 子目錄 → workspace skills 目錄）
+
+### Browser Profile
+- 使用 `openclaw` profile（非 `chrome` profile）
+- 設定: `openclaw config set browser.defaultProfile openclaw`
+- Threads 登入 session 保存在此 profile 中
+
+### 環境變數載入
+```bash
+# 正確的載入方式（確保 export 到子 process）
+set -a && source .env && set +a
+```
+
 ## Next Steps
 
-**Phase 3 任務**（優先順序）:
-1. 研究 OpenClaw SKILL.md 格式（看官方文件或範例）
-2. 實作 `skills/threads-monitor/SKILL.md`（主監控 Skill）
-3. 實作 `skills/line-notify/SKILL.md`（LINE 通知 Skill）
-4. 實作 `skills/report-generator/SKILL.md`（戰報生成 Skill）
-5. 測試 Skills 是否能被 OpenClaw 正確讀取和執行
-
 **Phase 5 待辦**:
-- 端對端驗證整體流程
+- 重新執行端對端測試（驗證修正後的 agent 能否完整執行搜尋→過濾→去重→通知流程）
 - 健康檢查機制
 - 錯誤通知機制（監控系統壞了誰知道？）
+- 設定 cron job（每 30 分鐘）
+- 文檔同步（README.md 更新）
 
 **Claude Code 持續職責**:
 - 審查 OpenClaw 的實作
@@ -359,4 +395,4 @@ LINE Notify 服務已於 2025/03/31 終止。本專案已完成遷移至 LINE Me
 **Collaboration**: Claude Code (Reviewer) + OpenClaw (Executor)
 **No Docker Needed**: OpenClaw 跑在系統上，這個專案是 Skills 和資料
 **LINE API**: LINE Messaging API Push Message（LINE Notify 已於 2025/03/31 終止）
-**Test Status**: 48/48 tests passed, 85%+ coverage
+**Test Status**: 48/48 tests passed, 63% coverage (核心邏輯接近 100%)

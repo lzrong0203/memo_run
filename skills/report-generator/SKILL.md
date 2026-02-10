@@ -12,13 +12,18 @@ metadata: {"openclaw": {"emoji": "📊", "primaryEnv": "ANTHROPIC_API_KEY", "req
 
 這個 Skill 會接收來自 `threads-monitor` Skill 的有效貼文資料，使用 OpenClaw 內建的 LLM 進行智能分類和摘要，產出結構化戰報（Markdown 格式），並透過 Telegram + LINE 雙通道發送通知。系統會自動識別「大魚」（重大議題），並標記為高優先級通知。
 
+## 重要執行規則
+
+> **你必須直接執行以下所有步驟，不要委派給子 agent。**
+> **工作目錄為 `~/.openclaw/workspace/memo_run/`，所有 Python 指令需在此目錄下執行。**
+
 ## 使用方式
 
 ### 由 threads-monitor 自動觸發（推薦）
 
 ```bash
 # threads-monitor 發現有效貼文後會自動呼叫
-openclaw agent --message "執行 threads-monitor 監控" --local
+openclaw agent --message "執行 threads-monitor 監控" --local --channel telegram
 # → 自動觸發 report-generator
 ```
 
@@ -26,7 +31,7 @@ openclaw agent --message "執行 threads-monitor 監控" --local
 
 ```bash
 # 使用範例 JSON 資料測試戰報生成
-openclaw agent --message "使用 test/sample_data.json 資料產生戰報" --local
+openclaw agent --message "使用 test/sample_data.json 資料產生戰報" --local --channel telegram --channel telegram
 ```
 
 ## 工作流程
@@ -875,15 +880,15 @@ for (const bigFish of bigFishList) {
 # 使用範例資料測試（不發送通知）
 export REPORT_GENERATOR_TEST_MODE=true
 export REPORT_NO_NOTIFICATION=true
-openclaw agent --message "使用 test/sample_data.json 資料產生戰報" --local
+openclaw agent --message "使用 test/sample_data.json 資料產生戰報" --local --channel telegram
 
 # 僅測試 AI 分類（不產生完整報告）
 export REPORT_AI_TEST_ONLY=true
-openclaw agent --message "使用 test/sample_data.json 測試 AI 分類" --local
+openclaw agent --message "使用 test/sample_data.json 測試 AI 分類" --local --channel telegram
 
 # 使用 mock LLM（不呼叫真實 API）
 export REPORT_USE_MOCK_LLM=true
-openclaw agent --message "使用 test/sample_data.json 產生戰報（mock 模式）" --local
+openclaw agent --message "使用 test/sample_data.json 產生戰報（mock 模式）" --local --channel telegram
 ```
 
 ## 整合測試範例
@@ -925,7 +930,7 @@ export TELEGRAM_CHAT_ID="test_chat_id"
 export REPORT_GENERATOR_TEST_MODE=true
 
 # 3. 執行測試
-openclaw agent --message "使用 test/sample_data.json 資料產生戰報" --local
+openclaw agent --message "使用 test/sample_data.json 資料產生戰報" --local --channel telegram
 
 # 4. 驗證輸出
 ls -la data/reports/  # 檢查戰報是否產生
@@ -937,7 +942,7 @@ tail -f ~/.openclaw/logs/report-generator.log  # 檢查日誌
 ```bash
 # 測試單筆貼文分類
 export REPORT_AI_TEST_ONLY=true
-openclaw agent --message "分類測試：台北市長宣布投入 100 億元改善交通建設" --local
+openclaw agent --message "分類測試：台北市長宣布投入 100 億元改善交通建設" --local --channel telegram
 
 # 預期輸出:
 # {

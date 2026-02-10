@@ -1,12 +1,14 @@
 mission_mode: "政治/公關偵察"  # 或 "娛樂/演藝動態"
 
 keywords:
+  - keyword: "內湖"
+    enabled: true
   - keyword: "台北"
-    enabled: true
+    enabled: false
   - keyword: "某人名"
-    enabled: true
+    enabled: false
   - keyword: "某地區"
-    enabled: false  # 暫停監控
+    enabled: false
 
 # 分類標籤（依任務模式切換）
 labels:

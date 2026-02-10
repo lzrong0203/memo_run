@@ -12,6 +12,18 @@ Dobby 當前的職責是進行 **Phase 5 的驗證與測試，並準備部署**�
 - **測試覆蓋率**: 63%（核心函數接近 100%，`__main__` CLI 區塊未覆蓋拉低整體數字）
 - **Skills 驗證**: 3/3 全部通過（YAML frontmatter、必要欄位、環境變數一致性）
 - **安全性修正**: 已從 git 歷史中清除所有明文 tokens
+- **LINE 發送測試**: 成功（`send_line_message` 正常運作）
+- **Browser 環境**: 已設定 openclaw profile，Threads 已登入，搜尋「內湖」成功
+- **Skills 安裝**: 已透過 symlink 安裝到 `~/.openclaw/workspace/skills/`，3/3 Ready
+
+### 端對端測試發現的問題與修正 (2026-02-10)
+1. **`openclaw run` 不存在** → 已改為 `openclaw agent --message --local`
+2. **WhatsApp channel 錯誤** → 所有指令加上 `--channel telegram`
+3. **Agent 委派子 agent** → SKILL.md 加上「不要委派子 agent，直接執行」指示
+4. **Browser 開新 tab** → SKILL.md 加上「在同一 tab 中操作」指示
+5. **Browser profile 錯誤** → 設定 `browser.defaultProfile=openclaw`，SKILL.md 指定 profile
+6. **`.env` source 問題** → token 值加上單引號，使用 `set -a` export
+7. **keywords.yml 範例過時** → 更新為實際格式（含 enabled 欄位）
 
 ## My Detailed Execution Plan (Dobby's Role: Verification, Testing & Deployment)
 
@@ -35,17 +47,11 @@ Dobby 當前的職責是進行 **Phase 5 的驗證與測試，並準備部署**�
 *   **步驟 5.2: 運行所有 Python 單元測試** (已執行，48/48 tests passed)
 *   **步驟 5.3: 運行測試覆蓋率檢查** (已執行，總覆蓋率 63%，Claude 報告 ~90%)
 *   **步驟 5.4: 測試 Skills 語法正確性** (已完成 Dobby 的審閱)
-*   **步驟 5.5: 端對端驗證整體流程** (待執行 - 嘗試使用 `openclaw agent --message "執行 threads-monitor 監控" --skill threads-monitor --session-id agent:main:main`)
-    *   **Dobby 註記：** 嘗試執行 `openclaw run skills/threads-monitor` 命令失敗，錯誤為 `error: unknown command 'run'`。OpenClaw CLI 似乎沒有 `run` 命令來直接執行 Skills。
-    *   **新的嘗試方案：** 將改為使用 `openclaw agent --message "執行 threads-monitor 監控" --skill threads-monitor --session-id agent:main:main` 命令，並確保 `threads-monitor` Skill 能夠響應此消息。
-    *   驗證整個流程是否正常運作
-    *   檢查日誌輸出
-    *   **環境變數狀態：** 所有必要的環境變數已設定於 `.env`（不進版控）
-        - `ANTHROPIC_API_KEY`: 已設定
-        - `LINE_CHANNEL_ACCESS_TOKEN`: 已設定
-        - `LINE_USER_ID`: 已設定
-        - `TELEGRAM_BOT_TOKEN`: 已設定
-        - `TELEGRAM_CHAT_ID`: 已設定
+*   **步驟 5.5: 端對端驗證整體流程** (進行中)
+    *   正確指令: `openclaw agent --message "執行 threads-monitor 監控" --local --channel telegram --session-id threads-monitor-manual`
+    *   Browser 環境: openclaw profile 已設定，Threads 已登入
+    *   Skills 安裝: 透過 symlink `~/.openclaw/workspace/skills/` → 專案 `skills/`
+    *   **環境變數狀態：** 所有必要的環境變數已設定於 `.env`（不進版控，值已加引號）
 *   **步驟 5.6: 實際部署與執行測試** (待執行)
     *   設定 cron job（每 30 分鐘）
     *   監控執行狀況
@@ -72,6 +78,6 @@ Dobby 當前的職責是進行 **Phase 5 的驗證與測試，並準備部署**�
 
 ---
 
-**Dobby's Current Status & Next Action:**
-- 已完成：單元測試驗證 (48/48 passed)、覆蓋率檢查 (63%)、Skills 語法驗證 (3/3 passed)、環境變數設定於 .env、git 歷史中明文 tokens 已清除
-- 下一步：**嘗試使用 `openclaw agent --message "執行 threads-monitor 監控" --skill threads-monitor --session-id agent:main:main` 命令開始進行端對端驗證 (步驟 5.5)**。
+**Current Status & Next Action:**
+- 已完成：單元測試 (48/48)、Skills 驗證 (3/3)、安全修正、LINE 發送測試、Browser 環境設定、SKILL.md 全面修正（7 項問題）
+- 下一步：**重新執行端對端測試，驗證修正後的 agent 能否完整執行搜尋→過濾→去重→通知流程**
