@@ -33,7 +33,7 @@ Dobby 當前的職責是進行 **Phase 5 的驗證與測試，並準備部署**�
     *   驗證整個流程是否正常運作
     *   檢查日誌輸出
     *   **Dobby 已收到的環境變數：**
-        1.  `ANTHROPIC_API_KEY`: `REDACTED_ANTHROPIC_API_KEY` (已收到)
+        1.  `ANTHROPIC_API_KEY`: **待 Steve 提供 (已收到，但從 CONTEXT.md 中移除以防止洩漏)**
         2.  `LINE_CHANNEL_ACCESS_TOKEN`: `REDACTED_LINE_CHANNEL_ACCESS_TOKEN` (已收到)
         3.  `LINE_USER_ID`: `REDACTED_LINE_USER_ID` (已收到)
         4.  `TELEGRAM_BOT_TOKEN`: `REDACTED_TELEGRAM_BOT_TOKEN` (已收到)
