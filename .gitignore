@@ -4,6 +4,9 @@
 # Database
 data/*.db
 
+# Reports (auto-generated)
+data/reports/
+
 # Python
 __pycache__/
 *.pyc

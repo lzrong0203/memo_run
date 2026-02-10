@@ -161,9 +161,17 @@ if __name__ == '__main__':
         description="發送 LINE 訊息模組（使用 LINE Messaging API）。",
         epilog="安全提示: 請使用環境變數 LINE_CHANNEL_ACCESS_TOKEN 和 LINE_USER_ID 提供認證資訊，避免在命令列中暴露敏感資訊。"
     )
-    parser.add_argument("--message", required=True, help="要發送的訊息內容")
+    parser.add_argument("--message", help="要發送的純文字訊息")
+    parser.add_argument("--notification", action="store_true",
+                        help="發送格式化監控通知（需搭配 --keywords, --summary, --report-url）")
+    parser.add_argument("--keywords", help="監控關鍵字（逗號分隔）")
+    parser.add_argument("--summary", help="監控摘要內容")
+    parser.add_argument("--report-url", help="完整報告連結或本地路徑")
 
     args = parser.parse_args()
+
+    if not args.message and not args.notification:
+        parser.error("請指定 --message 或 --notification 模式")
 
     # 從環境變數獲取 token 和 user_id（安全做法）
     channel_token = os.environ.get("LINE_CHANNEL_ACCESS_TOKEN")
@@ -185,7 +193,15 @@ if __name__ == '__main__':
         )
         sys.exit(1)
 
-    success = send_line_message(channel_token, user_id, args.message)
+    if args.notification:
+        if not args.keywords or not args.summary or not args.report_url:
+            parser.error("--notification 模式需要 --keywords, --summary, --report-url")
+        keywords_list = [k.strip() for k in args.keywords.split(",")]
+        success = send_notification_message(
+            channel_token, user_id, keywords_list, args.summary, args.report_url
+        )
+    else:
+        success = send_line_message(channel_token, user_id, args.message)
 
     if success:
         print("LINE 訊息發送成功！")
