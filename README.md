@@ -136,11 +136,12 @@ openclaw cron add "*/30 * * * *" skills/threads-monitor
 
 ```bash
 # .env 檔案格式（不進版控）
-THREADS_USERNAME=your_username          # 首次登入用（之後可刪除）
-THREADS_PASSWORD=your_password          # 首次登入用（之後可刪除）
+THREADS_USERNAME=your_username                    # 首次登入用（之後可刪除）
+THREADS_PASSWORD=your_password                    # 首次登入用（之後可刪除）
 TELEGRAM_BOT_TOKEN=your_bot_token
-LINE_NOTIFY_TOKEN=your_line_token
-ANTHROPIC_API_KEY=your_api_key          # OpenClaw 使用
+LINE_CHANNEL_ACCESS_TOKEN=your_channel_token      # LINE Messaging API
+LINE_USER_ID=your_user_id                         # LINE 接收用戶 ID
+ANTHROPIC_API_KEY=your_api_key                    # OpenClaw 使用
 ```
 
 ### 安全檢查清單
@@ -148,6 +149,50 @@ ANTHROPIC_API_KEY=your_api_key          # OpenClaw 使用
 - ⚠️ Threads 登入使用 OpenClaw persistent profile（登入一次，永久保留）
 - ⚠️ 不在 logs 中記錄敏感資訊
 - ⚠️ API tokens 從環境變數讀取
+
+## 📨 LINE 通知功能
+
+### 結構化訊息格式
+
+系統會發送包含關鍵字、摘要和報告連結的格式化訊息：
+
+```
+🔔 Threads 監控通知
+
+關鍵字: 政治, 選舉, 投票
+
+摘要:
+本週 Threads 熱門討論包含多項選舉相關議題...
+
+完整報告:
+https://example.com/report/12345
+```
+
+### 使用方式
+
+```python
+from line_notify import send_notification_message
+
+# 發送結構化通知
+success = send_notification_message(
+    channel_access_token="your_token",
+    to_user_id="U1234567890abcdef",
+    keywords=["政治", "選舉", "投票"],  # 可為列表或字串
+    summary="本週熱門討論摘要...",
+    report_url="https://example.com/report/123"
+)
+```
+
+### CLI 工具
+
+```bash
+# 設定環境變數
+export LINE_CHANNEL_ACCESS_TOKEN='your_token'
+export LINE_USER_ID='U1234567890abcdef'
+
+# 發送簡單訊息
+python3 src/line_notify.py --message "測試訊息"
+```
 
 ## 🧪 測試
 
@@ -158,16 +203,21 @@ ANTHROPIC_API_KEY=your_api_key          # OpenClaw 使用
 2. 實作程式碼（GREEN）
 3. 重構優化（REFACTOR）
 
-### 執行測試（待實作）
+### 執行測試
 
 ```bash
 # 執行所有測試
-pytest
+python3 -m unittest discover tests
 
-# 執行測試並檢查覆蓋率
-pytest --cov=src --cov-report=html
+# 執行特定測試
+python3 tests/test_line_notify.py
+python3 tests/test_filter.py
+python3 tests/test_dedup.py
 
-# 目標：80%+ coverage
+# 測試覆蓋率
+- line_notify.py: 85%+ coverage (20 tests)
+- filter.py: 85%+ coverage (15 tests)
+- dedup.py: 85%+ coverage (13 tests)
 ```
 
 ## 🤝 雙 Agent 協作機制
@@ -212,7 +262,7 @@ pytest --cov=src --cov-report=html
 - **Helper Scripts**: Python 3.x
 - **Notifications**:
   - Telegram: OpenClaw 內建（grammY）
-  - LINE: LINE Notify API（自製整合）
+  - LINE: LINE Messaging API（自製整合，支援結構化通知）
 - **Testing**: pytest, pytest-cov
 
 ## 📖 相關文件
@@ -228,7 +278,7 @@ pytest --cov=src --cov-report=html
 - [OpenClaw Browser](https://docs.openclaw.ai/tools/browser)
 - [OpenClaw Cron](https://docs.openclaw.ai/automation/cron-jobs)
 - [OpenClaw Telegram](https://docs.openclaw.ai/channels/telegram)
-- [LINE Notify API](https://developers.line.biz/en/docs/messaging-api/)
+- [LINE Messaging API](https://developers.line.biz/en/docs/messaging-api/)
 
 ## 💰 成本估算
 
