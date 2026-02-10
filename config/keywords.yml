@@ -9,6 +9,8 @@ keywords:
     enabled: false
   - keyword: "某地區"
     enabled: false
+  - keyword: "黃國昌"
+    enabled: true
 
 # 分類標籤（依任務模式切換）
 labels:
