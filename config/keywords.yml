@@ -18,6 +18,7 @@ labels:
   娛樂/演藝動態: ["音樂", "演藝", "批判", "支持"]
 
 # 巡邏設定
+# max_scroll_attempts 可被環境變數 MAX_POSTS_PER_KEYWORD 覆蓋
 patrol:
   interval_minutes: 30
   max_scroll_attempts: 20
