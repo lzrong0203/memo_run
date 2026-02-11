@@ -3,6 +3,7 @@ import requests
 from typing import List, Union
 
 LINE_MESSAGING_API_URL: str = "https://api.line.me/v2/bot/message/push"
+LINE_BROADCAST_API_URL: str = "https://api.line.me/v2/bot/message/broadcast"
 TIMEOUT_SECONDS = 10
 MAX_MESSAGE_LENGTH = 5000
 
@@ -92,6 +93,76 @@ def send_line_message(channel_access_token: str, to_user_id: str, message: str) 
         return False
 
 
+def send_line_broadcast(channel_access_token: str, message: str) -> bool:
+    """
+    使用 LINE Messaging API 廣播訊息給所有好友。
+
+    Args:
+        channel_access_token: LINE Messaging API 的 Channel Access Token。
+        message: 要發送的訊息內容。
+
+    Returns:
+        bool: 如果訊息廣播成功，則返回 True，否則返回 False。
+    """
+    # Input validation for token
+    if not channel_access_token or not isinstance(channel_access_token, str):
+        logger.error("Channel access token is empty or invalid")
+        return False
+
+    if any(c in channel_access_token for c in '\r\n\t '):
+        logger.error("Channel access token contains invalid characters")
+        return False
+
+    # Input validation for message
+    if not message or not isinstance(message, str):
+        logger.error("Message is empty or invalid")
+        return False
+
+    if len(message) > MAX_MESSAGE_LENGTH:
+        logger.error("Message too long (max %d chars, got %d)", MAX_MESSAGE_LENGTH, len(message))
+        return False
+
+    headers = {
+        'Content-Type': 'application/json',
+        'Authorization': f'Bearer {channel_access_token}'
+    }
+
+    payload = {
+        'messages': [
+            {
+                'type': 'text',
+                'text': message
+            }
+        ]
+    }
+
+    try:
+        response = requests.post(
+            LINE_BROADCAST_API_URL,
+            headers=headers,
+            json=payload,
+            timeout=TIMEOUT_SECONDS,
+            verify=True
+        )
+        response.raise_for_status()
+
+        logger.info("LINE broadcast message sent successfully to all friends")
+        return True
+
+    except requests.exceptions.HTTPError as exc:
+        logger.error("LINE broadcast failed - HTTP error: %s", exc)
+        return False
+    except requests.exceptions.ConnectionError as exc:
+        logger.error("LINE broadcast failed - Connection error: %s", exc)
+        return False
+    except requests.exceptions.Timeout as exc:
+        logger.error("LINE broadcast failed - Timeout after %d seconds: %s", TIMEOUT_SECONDS, exc)
+        return False
+    except requests.exceptions.RequestException as exc:
+        logger.error("LINE broadcast failed - Request error: %s", exc)
+        return False
+
+
 def send_notification_message(
     channel_access_token: str,
     to_user_id: str,
@@ -171,6 +242,8 @@ if __name__ == '__main__':
         epilog="安全提示: 請使用環境變數 LINE_CHANNEL_ACCESS_TOKEN 和 LINE_USER_ID 提供認證資訊，避免在命令列中暴露敏感資訊。"
     )
     parser.add_argument("--message", help="要發送的純文字訊息")
+    parser.add_argument("--broadcast", action="store_true",
+                        help="廣播模式：發送給所有好友（不需要 LINE_USER_ID）")
     parser.add_argument("--notification", action="store_true",
                         help="發送格式化監控通知（需搭配 --keywords, --summary, --report-url）")
     parser.add_argument("--keywords", help="監控關鍵字（逗號分隔）")
@@ -182,9 +255,8 @@ if __name__ == '__main__':
     if not args.message and not args.notification:
         parser.error("請指定 --message 或 --notification 模式")
 
-    # 從環境變數獲取 token 和 user_id（安全做法）
+    # 從環境變數獲取 token（安全做法）
     channel_token = os.environ.get("LINE_CHANNEL_ACCESS_TOKEN")
-    user_id = os.environ.get("LINE_USER_ID")
 
     if not channel_token:
         print(
@@ -194,23 +266,42 @@ if __name__ == '__main__':
         )
         sys.exit(1)
 
-    if not user_id:
-        print(
-            "錯誤: 缺少 LINE User ID。請設定環境變數 LINE_USER_ID。\n"
-            "範例: export LINE_USER_ID='U1234567890abcdef1234567890abcdef'",
-            file=sys.stderr
-        )
-        sys.exit(1)
-
-    if args.notification:
-        if not args.keywords or not args.summary or not args.report_url:
-            parser.error("--notification 模式需要 --keywords, --summary, --report-url")
-        keywords_list = [k.strip() for k in args.keywords.split(",")]
-        success = send_notification_message(
-            channel_token, user_id, keywords_list, args.summary, args.report_url
-        )
+    if args.broadcast:
+        # 廣播模式：發給所有好友，不需要 user_id
+        if args.notification:
+            if not args.keywords or not args.summary or not args.report_url:
+                parser.error("--notification 模式需要 --keywords, --summary, --report-url")
+            keywords_list = [k.strip() for k in args.keywords.split(",")]
+            keywords_str = ", ".join(keywords_list)
+            formatted_message = (
+                f"🔔 Threads 監控通知\n\n"
+                f"關鍵字: {keywords_str}\n\n"
+                f"摘要:\n{args.summary}\n\n"
+                f"完整報告:\n{args.report_url}"
+            )
+            success = send_line_broadcast(channel_token, formatted_message)
+        else:
+            success = send_line_broadcast(channel_token, args.message)
     else:
-        success = send_line_message(channel_token, user_id, args.message)
+        # Push 模式：發給指定用戶，需要 user_id
+        user_id = os.environ.get("LINE_USER_ID")
+        if not user_id:
+            print(
+                "錯誤: 缺少 LINE User ID。請設定環境變數 LINE_USER_ID，或使用 --broadcast 模式。\n"
+                "範例: export LINE_USER_ID='U1234567890abcdef1234567890abcdef'",
+                file=sys.stderr
+            )
+            sys.exit(1)
+
+        if args.notification:
+            if not args.keywords or not args.summary or not args.report_url:
+                parser.error("--notification 模式需要 --keywords, --summary, --report-url")
+            keywords_list = [k.strip() for k in args.keywords.split(",")]
+            success = send_notification_message(
+                channel_token, user_id, keywords_list, args.summary, args.report_url
+            )
+        else:
+            success = send_line_message(channel_token, user_id, args.message)
 
     if success:
         print("LINE 訊息發送成功！")

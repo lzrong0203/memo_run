@@ -370,8 +370,10 @@ Gist URL: https://gist.github.com/xxx/yyy
 從上面的輸出中，找到 `=== LINE 摘要 ===` 到 `=== Telegram 摘要 ===` 之間的文字，**完整複製**，用 line_notify.py 發送：
 
 ```bash
-python3 /Users/steveopenclaw/.openclaw/workspace/memo_run/src/line_notify.py --message "從程式輸出複製的 LINE 摘要完整文字"
+python3 /Users/steveopenclaw/.openclaw/workspace/memo_run/src/line_notify.py --broadcast --message "從程式輸出複製的 LINE 摘要完整文字"
 ```
+
+> `--broadcast` 會發送給所有加入 LINE Official Account 的好友。若只要發給特定用戶，移除 `--broadcast`（需設定 `LINE_USER_ID` 環境變數）。
 
 > **⛔ 再次強調**：
 > - 訊息內容必須來自 `report_generator.py` 的輸出，不是你自己寫的
