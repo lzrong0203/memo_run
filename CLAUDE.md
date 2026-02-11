@@ -48,9 +48,42 @@ memo_run/                      # 這個專案資料夾
 │   ├── scoring.py            # 自訂評分加成
 │   ├── report_generator.py   # 戰報生成（Markdown + LINE/Telegram 摘要）
 │   └── line_notify.py        # LINE Messaging API (Push Message)
+├── web/                       # Web Dashboard（前後端）
+│   ├── backend/              # FastAPI 後端
+│   │   ├── main.py           # FastAPI app 入口（CORS, health check, router 掛載）
+│   │   ├── config.py         # 集中設定（DB_PATH, CORS origins, PROJECT_ROOT）
+│   │   ├── models.py         # Pydantic schemas（MonitorRequest, RunRecord 等）
+│   │   ├── utils.py          # 共用工具（run_id 驗證, RunRecord 建構）
+│   │   ├── routes/           # API 路由
+│   │   │   ├── monitor.py    # POST /api/monitor/start + WebSocket /api/monitor/ws/{run_id}
+│   │   │   ├── history.py    # GET /api/history（分頁列表）
+│   │   │   └── reports.py    # GET /api/reports/{run_id}（詳細報告）
+│   │   └── services/         # 業務邏輯
+│   │       ├── monitor_service.py  # OpenClaw agent subprocess + 進度解析
+│   │       └── run_history.py      # SQLite run history CRUD（data/runs.db）
+│   └── frontend/             # React + Vite 前端
+│       ├── src/
+│       │   ├── App.tsx       # 路由 + 導航列（/, /history, /run/:runId）
+│       │   ├── api.ts        # API client（fetch + WebSocket）
+│       │   ├── types.ts      # TypeScript 型別定義
+│       │   ├── pages/
+│       │   │   ├── Home.tsx      # 關鍵字輸入 + 即時進度面板
+│       │   │   ├── History.tsx   # 歷史記錄表格 + 分頁
+│       │   │   └── RunDetail.tsx # 報告檢視 + 圖表（Recharts）
+│       │   └── hooks/
+│       │       ├── useMonitor.ts  # WebSocket 監控 hook
+│       │       └── useHistory.ts  # 歷史記錄分頁 hook
+│       ├── tests/e2e/        # Playwright E2E 測試（32 個）
+│       │   ├── navigation.spec.ts    # 9 個測試
+│       │   ├── keyword-input.spec.ts # 12 個測試
+│       │   └── history.spec.ts       # 11 個測試
+│       ├── playwright.config.ts  # Playwright 設定
+│       ├── vite.config.ts    # Vite 設定（dev proxy → localhost:8000）
+│       └── package.json      # 前端依賴
 ├── data/                      # 資料儲存
-│   └── processed_posts.db    # SQLite 去重資料庫
-├── tests/                     # 測試（遵循 TDD）
+│   ├── processed_posts.db    # SQLite 去重資料庫
+│   └── runs.db               # SQLite run history 資料庫（Web Dashboard 用）
+├── tests/                     # Python 單元測試（遵循 TDD）
 │   ├── test_filter.py
 │   ├── test_dedup.py
 │   ├── test_line_notify.py
@@ -69,6 +102,14 @@ memo_run/                      # 這個專案資料夾
 - **Database**: SQLite（輕量、檔案型、適合專案資料夾）
 - **Helper Scripts**: Python（朋友的 code 用 Python，延續經驗）
 - **設定格式**: YAML（易讀易改）
+
+### Web Dashboard 技術選擇
+- **後端**: FastAPI 0.115.0 + uvicorn 0.32.0 + WebSocket（websockets 13.1）
+- **前端**: React 19 + Vite 6 + TypeScript 5.7 + Tailwind CSS v4
+- **圖表**: Recharts 2.15（PieChart, BarChart）
+- **Markdown 渲染**: react-markdown 9 + rehype-sanitize 6（XSS 防護）
+- **路由**: react-router-dom 7
+- **E2E 測試**: Playwright 1.58
 
 ### 整合服務
 - **Threads**: Browser automation（OpenClaw Browser + CDP）
@@ -171,14 +212,19 @@ def test_filter_keeps_valid_content():
   - `line_notify.py`: 74%（CLI 入口未覆蓋）
   - `dedup.py`: 58%（CLI 入口 + 部分 error path 未覆蓋）
   - `filter.py`: 56%（CLI 入口 + 部分 error path 未覆蓋）
-- **工具**: pytest（Python），pytest-cov（coverage）
-- **測試統計**: 120 個測試，100% 通過率
-  - report_generator.py: 28 個測試
-  - line_notify.py: 20 個測試（含 notification message 5 個）
-  - scoring.py: 20 個測試
-  - pipeline.py: 18 個測試
-  - filter.py: 14 個測試
-  - dedup.py: 14 個測試
+- **工具**: pytest（Python），pytest-cov（coverage），Playwright（E2E）
+- **測試統計**: 152 個測試，100% 通過率
+  - **Python 單元測試（120 個）**:
+    - report_generator.py: 28 個測試
+    - line_notify.py: 20 個測試（含 notification message 5 個）
+    - scoring.py: 20 個測試
+    - pipeline.py: 18 個測試
+    - filter.py: 14 個測試
+    - dedup.py: 14 個測試
+  - **Playwright E2E 測試（32 個）**:
+    - navigation.spec.ts: 9 個測試（導航、路由、active link 樣式）
+    - keyword-input.spec.ts: 12 個測試（輸入驗證、API 呼叫、Enter 觸發、重置）
+    - history.spec.ts: 11 個測試（載入狀態、空狀態、分頁、status badge 樣式）
 
 ## Code Quality Standards
 
@@ -319,6 +365,23 @@ except requests.RequestException as e:
 - [ ] 錯誤通知機制
 ```
 
+### Phase 6: Web Dashboard -- 已完成
+```markdown
+- [x] web/backend/main.py（FastAPI app, CORS 硬化, health check）
+- [x] web/backend/models.py（Pydantic schemas, keyword 驗證含 prompt injection 防護）
+- [x] web/backend/routes/monitor.py（POST /api/monitor/start + WebSocket 進度串流）
+- [x] web/backend/routes/history.py（GET /api/history 分頁列表）
+- [x] web/backend/routes/reports.py（GET /api/reports/{run_id} 詳細報告）
+- [x] web/backend/services/monitor_service.py（OpenClaw agent subprocess 管理）
+- [x] web/backend/services/run_history.py（SQLite run history CRUD）
+- [x] web/frontend React SPA（React 19 + Vite 6 + TypeScript + Tailwind CSS v4）
+- [x] 三個頁面: Home（監控啟動）, History（歷史列表）, RunDetail（報告+圖表）
+- [x] WebSocket 即時進度串流（useMonitor hook）
+- [x] 安全性: CORS hardening, XSS prevention (rehype-sanitize), prompt injection defense, URL 驗證
+- [x] Dead code cleanup: 移除未使用 imports、dead interfaces、修正 status badge bug
+- [x] Playwright E2E 測試（32/32 passed: navigation, keyword-input, history）
+```
+
 ## Cost and Performance
 
 ### LLM API 成本
@@ -400,7 +463,12 @@ set -a && source .env && set +a
 - 重新執行端對端測試（驗證修正後的 agent 能否完整執行搜尋→過濾→去重→通知流程）
 - 錯誤通知機制（監控系統壞了誰知道？）
 - 設定 cron job（每 30 分鐘）
-- 文檔同步（README.md 更新）
+
+**Web Dashboard 後續改進**:
+- Web backend 單元測試（目前只有 E2E 測試覆蓋前端）
+- Production 部署設定（uvicorn workers, 靜態檔案 serve）
+- 使用者認證（目前無 auth，僅限本地開發使用）
+- RunDetail 頁面的 E2E 測試（需 mock 完整報告資料）
 
 **Claude Code 持續職責**:
 - 審查 OpenClaw 的實作
@@ -411,9 +479,10 @@ set -a && source .env && set +a
 ---
 
 **Last Updated**: 2026-02-11
-**Architecture**: OpenClaw (系統級) + Python Helper Scripts
+**Architecture**: OpenClaw (系統級) + Python Helper Scripts + Web Dashboard (FastAPI + React)
 **Collaboration**: Claude Code (Reviewer) + OpenClaw (Executor)
 **No Docker Needed**: OpenClaw 跑在系統上，這個專案是 Skills 和資料
 **LINE API**: LINE Messaging API Push Message（LINE Notify 已於 2025/03/31 終止）
 **Pipeline**: pipeline.py 批次處理（filter+dedup+scoring 一次完成，取代逐篇 exec）
-**Test Status**: 120/120 tests passed
+**Web Dashboard**: FastAPI 0.115.0 + React 19 + Vite 6 + TypeScript + Tailwind CSS v4 + Playwright
+**Test Status**: 152 tests passed (120 Python + 32 Playwright E2E)

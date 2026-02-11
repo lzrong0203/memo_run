@@ -26,23 +26,40 @@
 
 ```
 memo_run/                      # OpenClaw Skills 專案
-├── skills/                    # OpenClaw 會讀取的 Skills（待實作）
+├── skills/                    # OpenClaw Skills（3 個 SKILL.md）
 │   ├── threads-monitor/       # 主監控 Skill
 │   ├── line-notify/           # LINE 通知 Skill
 │   └── report-generator/      # 戰報生成 Skill
 ├── config/                    # 設定檔
 │   ├── keywords.yml          # 監控關鍵字設定
 │   └── filters.yml           # 硬性排除詞 + 白名單設定
-├── src/                       # Python Helper Scripts（已完成）
+├── src/                       # Python Helper Scripts
+│   ├── pipeline.py           # 批次 pipeline（filter+dedup+scoring 一次完成）
 │   ├── filter.py             # 硬性排除過濾 CLI（詞組 + 白名單）
 │   ├── dedup.py              # SQLite 去重 CLI（CRUD 操作）
+│   ├── scoring.py            # 自訂評分加成
+│   ├── report_generator.py   # 戰報生成（Markdown + LINE/Telegram 摘要）
 │   └── line_notify.py        # LINE Messaging API CLI（Push Message + 格式化通知）
+├── web/                       # Web Dashboard
+│   ├── backend/              # FastAPI 後端（REST API + WebSocket）
+│   │   ├── main.py           # FastAPI app 入口
+│   │   ├── models.py         # Pydantic request/response schemas
+│   │   ├── routes/           # API 路由（monitor, history, reports）
+│   │   └── services/         # 業務邏輯（monitor_service, run_history）
+│   └── frontend/             # React + Vite 前端
+│       ├── src/              # App.tsx, pages/, hooks/, api.ts, types.ts
+│       ├── tests/e2e/        # Playwright E2E 測試（32 個）
+│       └── package.json      # 前端依賴
 ├── data/                      # 資料儲存
-│   └── processed_posts.db    # SQLite 去重資料庫
-├── tests/                     # 測試（TDD，48 個測試全部通過）
+│   ├── processed_posts.db    # SQLite 去重資料庫
+│   └── runs.db               # SQLite run history 資料庫
+├── tests/                     # Python 單元測試（TDD，120 個測試）
 │   ├── test_filter.py        # 14 個測試
 │   ├── test_dedup.py         # 14 個測試
-│   └── test_line_notify.py   # 20 個測試
+│   ├── test_line_notify.py   # 20 個測試
+│   ├── test_report_generator.py  # 28 個測試
+│   ├── test_scoring.py       # 20 個測試
+│   └── test_pipeline.py      # 18 個測試
 ├── CONTEXT.md                # OpenClaw 工作日誌
 ├── CLAUDE.md                 # 專案知識庫
 ├── .env.example              # 環境變數範例
@@ -61,12 +78,13 @@ memo_run/                      # OpenClaw Skills 專案
    openclaw --version
    ```
 
-2. **Node.js >= 22**
+2. **Node.js >= 22**（OpenClaw 需要 >= 22，Web frontend 需要 >= 18）
    ```bash
    node --version  # 應該 >= 22
+   npm --version
    ```
 
-3. **Python 3.x**（用於 helper scripts）
+3. **Python 3.x**（用於 helper scripts 和 Web backend）
    ```bash
    python3 --version
    ```
@@ -79,37 +97,70 @@ memo_run/                      # OpenClaw Skills 專案
    cd memo_run
    ```
 
-2. **安裝 Python 依賴**（待補充 requirements.txt）
+2. **安裝 Python 依賴**
    ```bash
    pip install -r requirements.txt
    ```
 
-3. **設定環境變數**
+3. **安裝前端依賴**
+   ```bash
+   cd web/frontend
+   npm install
+   cd ../..
+   ```
+
+4. **設定環境變數**
    ```bash
    cp .env.example .env
    # 編輯 .env，填入你的 API tokens
    ```
 
-4. **設定監控關鍵字**
+5. **設定監控關鍵字**
    ```bash
    # 編輯 config/keywords.yml
    vim config/keywords.yml
    ```
 
-5. **設定排除規則**
+6. **設定排除規則**
    ```bash
    # 編輯 config/filters.yml
    vim config/filters.yml
    ```
 
-### 使用方式（待 OpenClaw 實作 Skills）
+### 使用方式 -- OpenClaw CLI
 
 ```bash
-# 手動觸發監控（待實作）
-openclaw run skills/threads-monitor
+# 手動觸發監控
+openclaw agent --message "執行 threads-monitor 監控" --local --channel telegram --session-id threads-monitor-manual
 
-# 設定自動巡邏（每 30 分鐘）（待實作）
-openclaw cron add "*/30 * * * *" skills/threads-monitor
+# 設定自動巡邏（每 30 分鐘）
+openclaw cron add "*/30 * * * *" "openclaw agent --message '執行 threads-monitor 監控' --local --channel telegram"
+```
+
+### 使用方式 -- Web Dashboard
+
+Web Dashboard 提供圖形化介面，可以啟動監控、查看即時進度、瀏覽歷史報告和圖表。
+
+**啟動後端（FastAPI）**:
+```bash
+# 從專案根目錄啟動
+uvicorn web.backend.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+**啟動前端（Vite dev server）**:
+```bash
+cd web/frontend
+npm install
+npm run dev
+# 前端啟動在 http://localhost:5173
+# API 請求自動 proxy 到 http://localhost:8000
+```
+
+**Build 前端（production）**:
+```bash
+cd web/frontend
+npm run build
+npm run preview  # 預覽 production build
 ```
 
 ## 開發狀態
@@ -123,11 +174,14 @@ openclaw cron add "*/30 * * * *" skills/threads-monitor
 - [x] requirements.txt（版本已 pin）
 - [x] README.md / CLAUDE.md / CONTEXT.md
 
-### Phase 2: Python 工具模組 -- 已完成（TDD，48 個測試，85%+ 覆蓋率）
+### Phase 2: Python 工具模組 -- 已完成（TDD，120 個測試）
 - [x] src/filter.py -- 硬性排除過濾（詞組 + 白名單 + 最小長度）
 - [x] src/dedup.py -- SQLite 去重管理（CRUD 完整）
 - [x] src/line_notify.py -- LINE Messaging API Push Message + 格式化通知
-- [x] 完整測試套件（line_notify: 20, filter: 14, dedup: 14）
+- [x] src/report_generator.py -- Markdown 戰報 + LINE/Telegram 摘要
+- [x] src/scoring.py -- 自訂評分加成
+- [x] src/pipeline.py -- 批次 pipeline（filter+dedup+scoring 一次完成）
+- [x] 完整測試套件（120 個測試: report_generator 28, line_notify 20, scoring 20, pipeline 18, filter 14, dedup 14）
 
 ### Phase 3: OpenClaw Skills -- 已完成
 - [x] 研究 OpenClaw SKILL.md 格式（YAML frontmatter + Markdown）
@@ -135,9 +189,20 @@ openclaw cron add "*/30 * * * *" skills/threads-monitor
 - [x] skills/line-notify/SKILL.md（437 lines，LINE 通知包裝）
 - [x] skills/report-generator/SKILL.md（979 lines，AI 分類與戰報生成）
 
-### Phase 5: 驗證與測試 -- 待 Phase 3 完成
-- [ ] 端對端驗證流程
-- [ ] 健康檢查與錯誤通知機制
+### Phase 5: 驗證與測試 -- 進行中
+- [x] 單元測試驗證（120/120 passed）
+- [x] Skills 語法驗證（3/3 passed）
+- [x] 安全性修正
+- [ ] 端對端驗證流程（待執行 openclaw agent 命令）
+- [ ] 錯誤通知機制
+
+### Phase 6: Web Dashboard -- 已完成
+- [x] FastAPI 後端（REST API + WebSocket 即時進度串流）
+- [x] React + Vite 前端（TypeScript + Tailwind CSS v4）
+- [x] 三個頁面: Home（監控啟動）, History（歷史列表+分頁）, RunDetail（報告+圖表）
+- [x] 安全性: CORS hardening, XSS prevention, prompt injection defense
+- [x] Playwright E2E 測試（32/32 passed: navigation, keyword-input, history）
+- [x] Dead code cleanup（移除未使用 imports、dead interfaces、修正 status badge bug）
 
 詳細開發計畫請見 [CONTEXT.md](CONTEXT.md)
 
@@ -147,12 +212,13 @@ openclaw cron add "*/30 * * * *" skills/threads-monitor
 
 ```bash
 # .env 檔案格式（不進版控）
-THREADS_USERNAME=your_username                    # 首次登入用（之後可刪除）
-THREADS_PASSWORD=your_password                    # 首次登入用（之後可刪除）
-TELEGRAM_BOT_TOKEN=your_bot_token
+ANTHROPIC_API_KEY=your_api_key                    # OpenClaw 使用
 LINE_CHANNEL_ACCESS_TOKEN=your_channel_token      # LINE Messaging API
 LINE_USER_ID=your_user_id                         # LINE 接收用戶 ID
-ANTHROPIC_API_KEY=your_api_key                    # OpenClaw 使用
+TELEGRAM_BOT_TOKEN=your_bot_token
+TELEGRAM_CHAT_ID=your_chat_id
+GITHUB_GIST_TOKEN=your_gist_token                # 戰報上傳（classic token with gist scope）
+CORS_ALLOWED_ORIGINS=http://localhost:5173        # Web Dashboard CORS（預設值）
 ```
 
 ### 安全檢查清單
@@ -214,22 +280,48 @@ python3 src/line_notify.py --message "測試訊息"
 2. 實作程式碼（GREEN）
 3. 重構優化（REFACTOR）
 
-### 執行測試
+### 執行 Python 單元測試
 
 ```bash
-# 執行所有測試
-python3 -m unittest discover tests
+# 執行所有 Python 測試（120 個）
+python3 -m pytest tests/ -v
 
 # 執行特定測試
-python3 tests/test_line_notify.py
-python3 tests/test_filter.py
-python3 tests/test_dedup.py
+python3 -m pytest tests/test_filter.py -v
+python3 -m pytest tests/test_pipeline.py -v
 
 # 測試覆蓋率
-- line_notify.py: 85%+ coverage (20 tests)
-- filter.py: 85%+ coverage (15 tests)
-- dedup.py: 85%+ coverage (13 tests)
+python3 -m pytest tests/ --cov=src --cov-report=term-missing
 ```
+
+### 執行 Playwright E2E 測試
+
+```bash
+cd web/frontend
+
+# 安裝 Playwright browsers（首次需要）
+npx playwright install
+
+# 執行所有 E2E 測試（32 個）
+npx playwright test
+
+# 帶瀏覽器畫面執行（debug 用）
+npx playwright test --headed
+
+# 執行特定測試檔案
+npx playwright test tests/e2e/navigation.spec.ts
+
+# 檢視測試報告
+npx playwright show-report
+```
+
+### 測試統計
+
+| 類型 | 數量 | 工具 |
+|------|------|------|
+| Python 單元測試 | 120 | pytest + pytest-cov |
+| Playwright E2E | 32 | @playwright/test |
+| **總計** | **152** | |
 
 ## 🤝 雙 Agent 協作機制
 
@@ -271,10 +363,15 @@ python3 tests/test_dedup.py
 - **Scheduling**: OpenClaw Cron
 - **Database**: SQLite（輕量、檔案型）
 - **Helper Scripts**: Python 3.x
+- **Web Backend**: FastAPI 0.115.0 + uvicorn 0.32.0 + WebSocket
+- **Web Frontend**: React 19 + Vite 6 + TypeScript 5.7 + Tailwind CSS v4
+- **Charts**: Recharts 2.15（PieChart, BarChart）
+- **Markdown**: react-markdown 9 + rehype-sanitize 6（XSS 防護）
+- **Routing**: react-router-dom 7
 - **Notifications**:
   - Telegram: OpenClaw 內建（grammY）
   - LINE: LINE Messaging API（自製整合，支援結構化通知）
-- **Testing**: pytest, pytest-cov
+- **Testing**: pytest, pytest-cov, Playwright
 
 ## 📖 相關文件
 
@@ -328,8 +425,9 @@ python3 tests/test_dedup.py
 
 ---
 
-**Last Updated**: 2026-02-10
-**Status**: Phase 3 已完成，Phase 5 待開始
-**Tests**: 48/48 passed, 85%+ coverage
+**Last Updated**: 2026-02-11
+**Status**: Phase 6 (Web Dashboard) 已完成，Phase 5 (端對端驗證) 進行中
+**Tests**: 152/152 passed (120 Python + 32 Playwright E2E)
 **Skills**: 3 個 SKILL.md (1764 lines)
+**Web Dashboard**: FastAPI + React 19 + Vite 6 + TypeScript + Tailwind CSS v4
 **Maintainer**: Claude Code (Reviewer) + OpenClaw (Executor)
