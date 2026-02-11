@@ -79,5 +79,100 @@ Dobby 當前的職責是進行 **Phase 5 的驗證與測試，並準備部署**�
 ---
 
 **Current Status & Next Action:**
-- 已完成：單元測試 (48/48)、Skills 驗證 (3/3)、安全修正、LINE 發送測試、Browser 環境設定、SKILL.md 全面修正（7 項問題）
-- 下一步：**重新執行端對端測試，驗證修正後的 agent 能否完整執行搜尋→過濾→去重→通知流程**
+- 已完成：單元測試 (120/120)、Skills 驗證 (3/3)、安全修正、LINE 發送測試、Browser 環境設定、SKILL.md 全面修正
+- 已完成：pipeline.py 批次處理、MIN_VALID_POSTS 門檻、report_generator 接上 SKILL.md
+- 已完成：端對端測試成功（scout agent + claude-haiku-4-5）
+- 下一步：**實作 SKILL.md v3.0.0 自適應 DOM 抽取**
+
+---
+
+## 待實作計劃：SKILL.md v3.0.0 — 自適應 DOM 抽取取代截圖解析
+
+### 背景
+
+目前 SKILL.md v2.2.0 的步驟 2-4 使用 `browser snapshot` 讓 AI 看頁面內容再手動解析貼文。每輪滑動都要截圖+AI 解析，導致：
+- **慢**：5 輪滑動 x 8 秒等待 + 6 次 snapshot 解析 = 60 秒+
+- **數量不夠**：AI 從 snapshot 文字中解析容易遺漏
+- **耗 token**：每次 snapshot 都要 LLM 處理大量 DOM 文字
+
+### 策略：「看一次 DOM，之後全用 JS」
+
+1. **一次 snapshot** — 開頭看一次頁面，了解 Threads 目前的 DOM 結構（selector、class name 等）
+2. **全部滾完再抽** — 先連續滾動載入所有內容（不截圖），滾完後跑一次 JS 把所有貼文抽出來
+3. **snapshot 當備案** — JS 抽取失敗才用 snapshot fallback
+
+### 效能比較
+
+| 指標 | v2.2.0（截圖） | v3.0.0（JS 抽取） |
+|------|----------------|-------------------|
+| Snapshot 次數 | 6 次 | 1 次（開頭分析 DOM） |
+| AI 解析 snapshot | 6 次 | 1 次 |
+| 滾動等待 | 5 x 8s = 40s | 5 x 5s = 25s |
+| 抽取方式 | AI 讀文字 | JS 回傳 JSON |
+| 預估每關鍵字耗時 | ~60s+ | ~35s |
+
+### 修改範圍
+
+**只改 2 個檔案：**
+1. `skills/threads-monitor/SKILL.md` — 改寫步驟 2、3、4
+2. `CLAUDE.md` — 更新架構說明
+
+**不動的檔案：** `src/pipeline.py`、`src/report_generator.py`、`src/line_notify.py`、`tests/`、`config/`
+
+### 新步驟 2：導航 + DOM 結構分析
+
+1. `browser navigate` 到搜尋頁面（加 `&filter=recent`）
+2. `browser wait --time 5000`
+3. `browser snapshot`（唯一一次，用來了解 DOM 結構）
+4. 從 snapshot 中辨識貼文容器 selector、內容位置、作者位置、連結位置
+5. 根據觀察到的結構，準備 JS 抽取函數
+
+### 新步驟 3：先滾完，再用 JS 一次抽取
+
+**Phase A：連續滾動（不截圖）**
+- 最多 5 輪，每輪：scroll → wait 3s → scroll → wait 2s
+- 每輪 5 秒（vs 舊版 8 秒），不需要 snapshot
+
+**Phase B：一次 JS 抽取所有貼文**
+```javascript
+browser execute (function() {
+  var posts = [];
+  var seen = new Set();
+  var allLinks = document.querySelectorAll('a[href*="/post/"]');
+  allLinks.forEach(function(link) {
+    var href = link.getAttribute('href');
+    if (!href || seen.has(href)) return;
+    var fullUrl = href.startsWith('http') ? href : 'https://www.threads.net' + href;
+    var container = link.closest('[根據步驟2觀察到的selector]') || link.parentElement.parentElement.parentElement;
+    if (!container) return;
+    var textContent = container.innerText || '';
+    var authorMatch = href.match(/\/@([^\/]+)\/post\//);
+    var author = authorMatch ? authorMatch[1] : '';
+    if (textContent.length < 15) return;
+    seen.add(href);
+    posts.push({ content: textContent.substring(0, 2000), author: author, link: fullUrl });
+  });
+  return JSON.stringify(posts);
+})()
+```
+
+> JS 是模板，Agent 根據步驟 2 snapshot 觀察到的實際 DOM 結構調整 selector。
+> 最穩定的錨點是 `a[href*="/post/"]`，因為 `/post/` 是 Threads URL 的基本結構。
+
+**Phase C：fallback**
+- JS 回傳 0 篇 → 再 snapshot 一次 → 嘗試替代策略（`<script type="application/json">`）→ 最後才手動解析
+
+### 新步驟 4：驗證並格式化
+
+- 解析 JS 回傳的 JSON
+- 驗證每篇有 content、author、link
+- 去重（by link），最多取 20 篇
+- 輸出格式不變，直接給 pipeline.py
+
+### 實作順序
+
+1. 改寫 `SKILL.md` 步驟 2、3、4
+2. 更新版本號為 3.0.0
+3. 更新 `CLAUDE.md` 架構說明
+4. Commit + push
+5. 用 scout agent 實際跑一次驗證
