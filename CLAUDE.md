@@ -87,7 +87,7 @@ memo_run/                      # 這個專案資料夾
    ↓
 4. 讀取 config/keywords.yml，逐個搜尋
    ↓
-5. 抓取貼文 → 整理為 JSON 陣列
+5. JS DOM 抽取貼文（寫死 selector，失敗時三層 fallback）→ JSON 陣列
    ↓
 6. 呼叫 src/pipeline.py（一次完成：硬性過濾 + SQLite 去重 + 評分加成）
    ↓
@@ -99,6 +99,12 @@ memo_run/                      # 這個專案資料夾
    ↓
 10. LINE 通知（呼叫 src/line_notify.py，使用 LINE Messaging API Push Message）
 ```
+
+### v3.0.0 抽取策略
+- **主要方式**：JS 一次抽取（`a[href*="/post/"]` 寫死 selector + 向上找 container）
+- **Snapshot 次數**：0 次（正常路徑）/ 1 次（fallback 時）
+- **三層 Fallback**：JS 重試 → 內嵌 JSON → 回退 v2.2.0 snapshot 模式
+- **健康檢查**：每輪記錄 `data/health.log`，連續異常自動告警
 
 ### Skill 設計原則
 - **SKILL.md**: 定義 OpenClaw 的行為模式
@@ -166,7 +172,7 @@ def test_filter_keeps_valid_content():
   - `dedup.py`: 58%（CLI 入口 + 部分 error path 未覆蓋）
   - `filter.py`: 56%（CLI 入口 + 部分 error path 未覆蓋）
 - **工具**: pytest（Python），pytest-cov（coverage）
-- **測試統計**: 114 個測試，100% 通過率
+- **測試統計**: 120 個測試，100% 通過率
   - report_generator.py: 28 個測試
   - line_notify.py: 20 個測試（含 notification message 5 個）
   - scoring.py: 20 個測試
@@ -217,7 +223,7 @@ except requests.RequestException as e:
 
 2. ~~**Phase 2 缺少 TDD**~~ -- 已完成
    - ✅ 已改為 test-first 流程
-   - ✅ 48 個測試全部通過，覆蓋率 63%（核心邏輯接近 100%，CLI 區塊未覆蓋拉低整體數字）
+   - ✅ 120 個測試全部通過，覆蓋率 63%（核心邏輯接近 100%，CLI 區塊未覆蓋拉低整體數字）
 
 3. ~~**安全策略不完整**~~ -- 已改善
    - ✅ API tokens 從環境變數讀取（已移除 CLI --token 參數）
@@ -286,7 +292,7 @@ except requests.RequestException as e:
 - [x] src/scoring.py（自訂評分加成，依 config/scoring.yml）
 - [x] tests/test_pipeline.py（18 個測試）
 - [x] src/pipeline.py（批次 pipeline：filter+dedup+scoring 一次完成）
-- [x] 114 個測試全部通過
+- [x] 120 個測試全部通過
 ```
 
 ### Phase 3: OpenClaw Skills -- 已完成
@@ -304,12 +310,12 @@ except requests.RequestException as e:
 
 ### Phase 5: 驗證與測試 -- 進行中
 ```markdown
-- [x] 單元測試驗證（48/48 passed, 0.22s）
+- [x] 單元測試驗證（120/120 passed）
 - [x] 覆蓋率檢查（63%，核心邏輯接近 100%）
 - [x] Skills 語法驗證（3/3 passed）
 - [x] 安全性修正（移除 git 歷史中的明文 tokens）
+- [x] v3.0.0 SKILL.md 改寫（JS DOM 抽取 + fallback + 健康檢查）
 - [ ] 端對端驗證流程（待執行 openclaw agent 命令）
-- [ ] 健康檢查機制
 - [ ] 錯誤通知機制
 ```
 
@@ -392,7 +398,6 @@ set -a && source .env && set +a
 
 **Phase 5 待辦**:
 - 重新執行端對端測試（驗證修正後的 agent 能否完整執行搜尋→過濾→去重→通知流程）
-- 健康檢查機制
 - 錯誤通知機制（監控系統壞了誰知道？）
 - 設定 cron job（每 30 分鐘）
 - 文檔同步（README.md 更新）
@@ -411,4 +416,4 @@ set -a && source .env && set +a
 **No Docker Needed**: OpenClaw 跑在系統上，這個專案是 Skills 和資料
 **LINE API**: LINE Messaging API Push Message（LINE Notify 已於 2025/03/31 終止）
 **Pipeline**: pipeline.py 批次處理（filter+dedup+scoring 一次完成，取代逐篇 exec）
-**Test Status**: 114/114 tests passed
+**Test Status**: 120/120 tests passed
