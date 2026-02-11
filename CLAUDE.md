@@ -47,7 +47,7 @@ memo_run/                      # 這個專案資料夾
 │   ├── dedup.py              # SQLite 去重
 │   ├── scoring.py            # 自訂評分加成
 │   ├── report_generator.py   # 戰報生成（Markdown + LINE/Telegram 摘要）
-│   └── line_notify.py        # LINE Messaging API (Push Message)
+│   └── line_notify.py        # LINE Messaging API (Push + Broadcast)
 ├── web/                       # Web Dashboard（前後端）
 │   ├── backend/              # FastAPI 後端
 │   │   ├── main.py           # FastAPI app 入口（CORS, health check, router 掛載）
@@ -138,7 +138,7 @@ memo_run/                      # 這個專案資料夾
    ↓
 9. Telegram 通知（OpenClaw 內建）
    ↓
-10. LINE 通知（呼叫 src/line_notify.py，使用 LINE Messaging API Push Message）
+10. LINE 通知（呼叫 src/line_notify.py --broadcast，廣播給所有 LINE 好友）
 ```
 
 ### v3.0.0 抽取策略
@@ -170,12 +170,12 @@ memo_run/                      # 這個專案資料夾
 # .env（不進版控，只給範例 .env.example）
 ANTHROPIC_API_KEY=your_api_key                    # OpenClaw 會用
 LINE_CHANNEL_ACCESS_TOKEN=your_channel_token      # LINE Messaging API
-LINE_USER_ID=U1234567890abcdef1234567890abcdef    # LINE 接收用戶 ID
+LINE_USER_ID=U1234567890abcdef1234567890abcdef    # LINE 接收用戶 ID（僅 push 模式需要，broadcast 不需要）
 TELEGRAM_BOT_TOKEN=your_bot_token
 TELEGRAM_CHAT_ID=your_chat_id
 ```
 
-> **注意**: LINE Notify API 已於 2025/03/31 終止服務。本專案使用 LINE Messaging API 的 Push Message 功能替代。
+> **注意**: LINE Notify API 已於 2025/03/31 終止服務。本專案使用 LINE Messaging API 的 Broadcast 功能（所有好友都會收到）。也保留 Push Message 模式（發給指定用戶）。
 > `LINE_NOTIFY_TOKEN` 已不再使用，已移除。
 
 ### 安全檢查清單
@@ -213,10 +213,10 @@ def test_filter_keeps_valid_content():
   - `dedup.py`: 58%（CLI 入口 + 部分 error path 未覆蓋）
   - `filter.py`: 56%（CLI 入口 + 部分 error path 未覆蓋）
 - **工具**: pytest（Python），pytest-cov（coverage），Playwright（E2E）
-- **測試統計**: 152 個測試，100% 通過率
+- **測試統計**: 162 個測試，100% 通過率
   - **Python 單元測試（120 個）**:
     - report_generator.py: 28 個測試
-    - line_notify.py: 20 個測試（含 notification message 5 個）
+    - line_notify.py: 30 個測試（含 broadcast 10 個 + notification message 5 個）
     - scoring.py: 20 個測試
     - pipeline.py: 18 個測試
     - filter.py: 14 個測試
@@ -269,7 +269,7 @@ except requests.RequestException as e:
 
 2. ~~**Phase 2 缺少 TDD**~~ -- 已完成
    - ✅ 已改為 test-first 流程
-   - ✅ 120 個測試全部通過，覆蓋率 63%（核心邏輯接近 100%，CLI 區塊未覆蓋拉低整體數字）
+   - ✅ 130 個測試全部通過，覆蓋率 63%（核心邏輯接近 100%，CLI 區塊未覆蓋拉低整體數字）
 
 3. ~~**安全策略不完整**~~ -- 已改善
    - ✅ API tokens 從環境變數讀取（已移除 CLI --token 參數）
@@ -330,7 +330,7 @@ except requests.RequestException as e:
 - [x] src/filter.py（硬性排除 + 白名單 + 最小長度）
 - [x] tests/test_dedup.py（14 個測試）
 - [x] src/dedup.py（SQLite 去重，CRUD 操作完整）
-- [x] tests/test_line_notify.py（20 個測試，含 notification message 測試）
+- [x] tests/test_line_notify.py（30 個測試，含 broadcast 10 個 + notification message 測試）
 - [x] src/line_notify.py（LINE Messaging API，含 send_notification_message）
 - [x] tests/test_report_generator.py（28 個測試）
 - [x] src/report_generator.py（Markdown 戰報 + LINE/Telegram 摘要）
@@ -338,7 +338,7 @@ except requests.RequestException as e:
 - [x] src/scoring.py（自訂評分加成，依 config/scoring.yml）
 - [x] tests/test_pipeline.py（18 個測試）
 - [x] src/pipeline.py（批次 pipeline：filter+dedup+scoring 一次完成）
-- [x] 120 個測試全部通過
+- [x] 130 個測試全部通過
 ```
 
 ### Phase 3: OpenClaw Skills -- 已完成
@@ -356,7 +356,7 @@ except requests.RequestException as e:
 
 ### Phase 5: 驗證與測試 -- 進行中
 ```markdown
-- [x] 單元測試驗證（120/120 passed）
+- [x] 單元測試驗證（130/130 passed）
 - [x] 覆蓋率檢查（63%，核心邏輯接近 100%）
 - [x] Skills 語法驗證（3/3 passed）
 - [x] 安全性修正（移除 git 歷史中的明文 tokens）
@@ -416,12 +416,22 @@ LINE Notify 服務已於 2025/03/31 終止。本專案已完成遷移至 LINE Me
 
 | 函數 | 用途 | 參數 |
 |------|------|------|
-| `send_line_message()` | 發送純文字訊息 | channel_access_token, to_user_id, message |
-| `send_notification_message()` | 發送格式化監控通知 | channel_access_token, to_user_id, keywords, summary, report_url |
+| `send_line_broadcast()` | 廣播訊息給所有好友 | channel_access_token, message |
+| `send_line_message()` | 發送純文字訊息給指定用戶 | channel_access_token, to_user_id, message |
+| `send_notification_message()` | 發送格式化監控通知給指定用戶 | channel_access_token, to_user_id, keywords, summary, report_url |
+
+### CLI 使用方式
+```bash
+# 廣播給所有好友（推薦，用於監控通知）
+python3 src/line_notify.py --broadcast --message "訊息內容"
+
+# 發送給指定用戶（需設定 LINE_USER_ID）
+python3 src/line_notify.py --message "訊息內容"
+```
 
 ### 安全設計
 - Token 只能透過環境變數取得（`LINE_CHANNEL_ACCESS_TOKEN`）
-- User ID 只能透過環境變數取得（`LINE_USER_ID`）
+- User ID 只能透過環境變數取得（`LINE_USER_ID`，僅 push 模式需要）
 - 已移除 CLI `--token` 參數（避免出現在 process list 和 shell history）
 - Input validation：檢查空值、長度上限（5000 字元）、header injection 防護
 
@@ -482,7 +492,7 @@ set -a && source .env && set +a
 **Architecture**: OpenClaw (系統級) + Python Helper Scripts + Web Dashboard (FastAPI + React)
 **Collaboration**: Claude Code (Reviewer) + OpenClaw (Executor)
 **No Docker Needed**: OpenClaw 跑在系統上，這個專案是 Skills 和資料
-**LINE API**: LINE Messaging API Push Message（LINE Notify 已於 2025/03/31 終止）
+**LINE API**: LINE Messaging API Broadcast + Push（LINE Notify 已於 2025/03/31 終止）
 **Pipeline**: pipeline.py 批次處理（filter+dedup+scoring 一次完成，取代逐篇 exec）
 **Web Dashboard**: FastAPI 0.115.0 + React 19 + Vite 6 + TypeScript + Tailwind CSS v4 + Playwright
-**Test Status**: 152 tests passed (120 Python + 32 Playwright E2E)
+**Test Status**: 162 tests passed (130 Python + 32 Playwright E2E)

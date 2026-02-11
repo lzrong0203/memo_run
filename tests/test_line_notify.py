@@ -7,7 +7,10 @@ import requests
 # 將 src 目錄添加到 Python 路徑中
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
 
-from line_notify import send_line_message, send_notification_message, MAX_MESSAGE_LENGTH
+from line_notify import (
+    send_line_message, send_line_broadcast, send_notification_message,
+    MAX_MESSAGE_LENGTH, LINE_BROADCAST_API_URL
+)
 
 
 class TestLineMessaging(unittest.TestCase):
@@ -272,6 +275,120 @@ class TestLineMessaging(unittest.TestCase):
 
         self.assertFalse(success, "空 URL 應該失敗")
         mock_post.assert_not_called()
+
+
+class TestLineBroadcast(unittest.TestCase):
+
+    def setUp(self):
+        self.mock_token = "mock_channel_access_token"
+        self.mock_message = "Broadcast test message."
+
+    # ========== Success Cases ==========
+
+    @patch('line_notify.requests.post')
+    def test_broadcast_success(self, mock_post):
+        """測試成功廣播 LINE 訊息"""
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.raise_for_status.return_value = None
+        mock_post.return_value = mock_response
+
+        success = send_line_broadcast(self.mock_token, self.mock_message)
+
+        self.assertTrue(success, "應該成功廣播訊息")
+        mock_post.assert_called_once()
+
+        # 檢查 API endpoint 是 broadcast
+        call_args = mock_post.call_args
+        self.assertEqual(call_args.args[0], LINE_BROADCAST_API_URL)
+
+        # 檢查 payload 不含 'to' 欄位
+        json_payload = call_args.kwargs['json']
+        self.assertNotIn('to', json_payload)
+
+        # 檢查 messages 格式
+        self.assertEqual(len(json_payload['messages']), 1)
+        self.assertEqual(json_payload['messages'][0]['type'], 'text')
+        self.assertEqual(json_payload['messages'][0]['text'], self.mock_message)
+
+    @patch('line_notify.requests.post')
+    def test_broadcast_headers(self, mock_post):
+        """測試 broadcast 使用正確的 headers"""
+        mock_response = Mock()
+        mock_response.raise_for_status.return_value = None
+        mock_post.return_value = mock_response
+
+        send_line_broadcast(self.mock_token, self.mock_message)
+
+        call_kwargs = mock_post.call_args.kwargs
+        self.assertEqual(call_kwargs['headers']['Authorization'], f'Bearer {self.mock_token}')
+        self.assertEqual(call_kwargs['headers']['Content-Type'], 'application/json')
+
+    # ========== Input Validation Tests ==========
+
+    @patch('line_notify.requests.post')
+    def test_broadcast_empty_token(self, mock_post):
+        """測試空 token 廣播應該失敗"""
+        success = send_line_broadcast("", self.mock_message)
+        self.assertFalse(success)
+        mock_post.assert_not_called()
+
+    @patch('line_notify.requests.post')
+    def test_broadcast_none_token(self, mock_post):
+        """測試 None token 廣播應該失敗"""
+        success = send_line_broadcast(None, self.mock_message)
+        self.assertFalse(success)
+        mock_post.assert_not_called()
+
+    @patch('line_notify.requests.post')
+    def test_broadcast_token_with_newline(self, mock_post):
+        """測試包含換行符的 token（header injection 風險）"""
+        success = send_line_broadcast("token\r\nX-Evil: header", self.mock_message)
+        self.assertFalse(success)
+        mock_post.assert_not_called()
+
+    @patch('line_notify.requests.post')
+    def test_broadcast_empty_message(self, mock_post):
+        """測試空訊息廣播應該失敗"""
+        success = send_line_broadcast(self.mock_token, "")
+        self.assertFalse(success)
+        mock_post.assert_not_called()
+
+    @patch('line_notify.requests.post')
+    def test_broadcast_message_too_long(self, mock_post):
+        """測試超長訊息廣播應該失敗"""
+        long_message = "x" * (MAX_MESSAGE_LENGTH + 1)
+        success = send_line_broadcast(self.mock_token, long_message)
+        self.assertFalse(success)
+        mock_post.assert_not_called()
+
+    # ========== Exception Tests ==========
+
+    @patch('line_notify.requests.post')
+    def test_broadcast_http_error(self, mock_post):
+        """測試 broadcast HTTP 錯誤"""
+        mock_response = Mock()
+        mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError("403 Forbidden")
+        mock_post.return_value = mock_response
+
+        success = send_line_broadcast(self.mock_token, self.mock_message)
+        self.assertFalse(success)
+
+    @patch('line_notify.requests.post')
+    def test_broadcast_timeout(self, mock_post):
+        """測試 broadcast timeout"""
+        mock_post.side_effect = requests.exceptions.Timeout("Timed out")
+
+        success = send_line_broadcast(self.mock_token, self.mock_message)
+        self.assertFalse(success)
+
+    @patch('line_notify.requests.post')
+    def test_broadcast_connection_error(self, mock_post):
+        """測試 broadcast 連線錯誤"""
+        mock_post.side_effect = requests.exceptions.ConnectionError("Refused")
+
+        success = send_line_broadcast(self.mock_token, self.mock_message)
+        self.assertFalse(success)
 
 
 if __name__ == '__main__':
