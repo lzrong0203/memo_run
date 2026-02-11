@@ -66,15 +66,19 @@ cat /Users/steveopenclaw/.openclaw/workspace/memo_run/config/keywords.yml
 
 使用 browser 工具（profile: openclaw）：
 
-1. 導航到搜尋頁面（在**當前 tab** 中，不要開新 tab），**必須加上 `&filter=recent` 以顯示最新貼文**：
+1. **回報進度**：在 Telegram channel 回報目前正在搜尋的關鍵字：
+   ```
+   🔍 正在搜尋關鍵字: [關鍵字名稱]（第 N/M 個）
+   ```
+2. 導航到搜尋頁面（在**當前 tab** 中，不要開新 tab），**必須加上 `&filter=recent` 以顯示最新貼文**：
    ```
    browser navigate https://www.threads.net/search?q=關鍵字&filter=recent
    ```
-2. 等待頁面載入（等待 5 秒）：
+3. 等待頁面載入（等待 5 秒）：
    ```
    browser wait --time 5000
    ```
-3. **不做 snapshot** — 直接進入步驟 3
+4. **不做 snapshot** — 直接進入步驟 3
 
 > **設計理念**：`a[href*="/post/"]` 是 Threads URL 的基本結構，改變機率極低。
 > 不需要每次都 snapshot 分析 DOM，省下一次 LLM 呼叫。
@@ -135,7 +139,11 @@ browser execute (function() { var posts = []; var seen = new Set(); var allLinks
 > - 這樣即使 Threads 改了 DOM 層級，只要 URL 結構不變就能抽取
 > - Author 從 URL 中的 `/@username/post/` 格式解析
 
-**檢查 JS 回傳結果**：若回傳的貼文數量 > 0，直接進入步驟 4。若回傳 0 篇，進入 Phase C fallback。
+**檢查 JS 回傳結果並回報進度**：
+- 解析回傳的 JSON，計算抽取到的貼文數量
+- 在 Telegram channel 回報：`📥 JS 抽取完成: 找到 N 篇貼文`
+- 若回傳的貼文數量 > 0，直接進入步驟 4
+- 若回傳 0 篇，回報 `⚠️ JS 抽取 0 篇，啟動 fallback...`，進入 Phase C fallback
 
 #### Phase C：三層 Fallback（僅在 Phase B 回傳 0 篇時執行）
 
@@ -232,6 +240,11 @@ pipeline.py 會一次完成：
 }
 ```
 
+**回報進度**：在 Telegram channel 回報 pipeline 的 `summary` 欄位，例如：
+```
+📊 [關鍵字名稱] 掃描 12 篇 → 過濾 3 篇 → 重複 2 篇 → 有效 7 篇
+```
+
 ### 步驟 5b: 不足則繼續搜尋（最多重試 3 輪）
 
 **檢查 pipeline 輸出的 `needs_more` 欄位：**
@@ -298,18 +311,23 @@ echo '上面的JSON' > /tmp/threads_analysis.json
 
 ### 步驟 7: 生成戰報並發送通知
 
-**7a. 呼叫 report_generator.py 生成戰報 + 上傳 Gist + 產出 LINE 摘要：**
+> **⛔ 絕對禁止自行撰寫 LINE 或 Telegram 訊息。**
+> **你必須執行下面的 Python 指令，使用它的輸出作為訊息內容。**
+> **不要用自己的理解改寫、重新排版、加入 emoji 或調整格式。原封不動複製程式輸出。**
+
+**7a. 呼叫 report_generator.py 生成戰報 + 上傳 Gist + 產出 LINE/Telegram 摘要：**
 
 ```bash
 python3 /Users/steveopenclaw/.openclaw/workspace/memo_run/src/report_generator.py --input /tmp/threads_analysis.json --format all --gist
 ```
 
-這個指令會：
-- 生成 Markdown 戰報並儲存到 `data/reports/`
-- 上傳戰報到 GitHub Gist（取得公開 URL）
-- 輸出 LINE 摘要（含貼文連結 + Gist 戰報連結）
+這個指令會一次輸出所有結果。你需要做的是：
+1. 執行上面的指令
+2. 等待輸出完成
+3. 從輸出中找到 `=== LINE 摘要 ===` 和 `=== Telegram 摘要 ===` 區塊
+4. **原封不動**複製這些區塊的內容（包含所有 URL）
 
-**輸出範例：**
+**輸出範例（程式實際會產出的格式）：**
 ```
 報告已儲存: data/reports/report_20260211_030000.md
 Gist URL: https://gist.github.com/xxx/yyy
@@ -330,16 +348,36 @@ Gist URL: https://gist.github.com/xxx/yyy
 📄 完整戰報: https://gist.github.com/xxx/yyy
 
 === Telegram 摘要 ===
-...
+📊 *Threads 輿情戰報*
+
+掃描 20 筆 → 有效 2 筆
+關鍵字: 內湖
+
+🚨 *發現 1 個重大議題*
+
+*[9/10]* 內湖驚傳隨機擄童事件
+[查看原文](https://www.threads.net/@user/post/xxx)
+
+📋 *其他重點*
+
+• [政治] 內湖南港議員提名 [原文](https://www.threads.net/@user/post/yyy)
+
+📄 [完整戰報](https://gist.github.com/xxx/yyy)
 ```
 
-**7b. 複製「=== LINE 摘要 ===」區塊的內容，用 line_notify.py 發送：**
+**7b. 發送 LINE 通知（複製程式輸出，不要自己寫）：**
+
+從上面的輸出中，找到 `=== LINE 摘要 ===` 到 `=== Telegram 摘要 ===` 之間的文字，**完整複製**，用 line_notify.py 發送：
 
 ```bash
-python3 /Users/steveopenclaw/.openclaw/workspace/memo_run/src/line_notify.py --message "上面 LINE 摘要的完整文字"
+python3 /Users/steveopenclaw/.openclaw/workspace/memo_run/src/line_notify.py --message "從程式輸出複製的 LINE 摘要完整文字"
 ```
 
-> **重要**：LINE 摘要內容必須完整複製，包含所有貼文連結和 Gist 戰報連結。
+> **⛔ 再次強調**：
+> - 訊息內容必須來自 `report_generator.py` 的輸出，不是你自己寫的
+> - 必須包含所有 `→ https://www.threads.net/...` 貼文連結
+> - 必須包含 `📄 完整戰報: https://gist.github.com/...` 連結
+> - 不要加入 ⭐、🔴🟡🟢、━━━ 等 report_generator.py 沒有輸出的符號
 
 ### 步驟 8: 健康檢查與執行記錄
 
