@@ -79,8 +79,9 @@ Dobby 當前的職責是進行 **Phase 5 的驗證與測試，並準備部署**�
 ## Current Status & Next Action
 
 - **v2.2.0 狀態**：端對端驗證通過，可作為穩定 baseline
-- **下一步**：實作 SKILL.md v3.0.0（自適應 DOM 抽取）— 見下方詳細計畫
-- **待補**：健康檢查機制、錯誤通知機制、cron job 部署
+- **v4.0.0 已完成**：innerText + LLM 自適應解析（取代 v3.0.0 寫死 JS selector）
+- **SKILL 精簡**：三個 SKILL.md 從 1942 行 → ~330 行（-83%），大幅降低 agent token 消耗
+- **待補**：健康檢查機制、錯誤通知機制、cron job 部署、端對端驗證 v4.0.0
 
 ---
 
@@ -212,3 +213,50 @@ browser execute (function() {
 6. Commit（不 push，先本地驗證）
 7. 用 scout agent 實際跑一次驗證
 8. 驗證通過 → push；失敗 → 回滾 `git checkout v2.2.0-stable -- skills/threads-monitor/SKILL.md`
+
+---
+
+## SKILL.md v4.0.0 — innerText + LLM 自適應解析（2026-02-20）
+
+### 改進動機
+
+v3.0.0 使用寫死的 JS selector（`a[href*="/post/"]` + 向上找 container + innerText > 50）來抽取貼文。
+雖然比 v2.2.0 的 snapshot 模式快，但仍依賴 DOM 結構（container 層級、文字長度閾值），Threads 改版時容易壞掉。
+
+### v4.0.0 策略：「JS 取文字，AI 解析結構」
+
+1. JS 只做最簡單的事：取 `document.body.innerText`（頁面可見文字）+ 所有 `/post/` 連結
+2. 不走 DOM 結構、不找 container、不提取 author — 全部交給 LLM 自適應解析
+3. LLM 根據文字內容 + 連結列表，自行配對出每篇貼文的內容、作者、連結
+
+### 版本比較
+
+| 指標 | v2.x snapshot | v3.0.0 寫死 JS | v4.0.0 innerText + LLM |
+|------|---------------|----------------|------------------------|
+| 自適應 | 有（但很重） | 沒有 | **有** |
+| Snapshot 次數 | 6 次 | 0 次 | **0 次** |
+| LLM 解析次數 | 6 次 | 0 次 | **1 次**（比 v2.x 少 5 次） |
+| DOM 依賴 | 無 | 高（selector + container） | **無**（只用 `a[href]`） |
+| 速度 | 最慢 | 最快 | **中等**（比 v2.x 快很多） |
+| Threads 改版 | 不怕 | 會壞 | **不怕** |
+
+### SKILL 精簡效果
+
+| Skill | v3.0.0 行數 | v4.0.0 行數 | 縮減 |
+|-------|------------|------------|------|
+| threads-monitor | 520 | ~180 | -65% |
+| report-generator | 985 | ~90 | -91% |
+| line-notify | 437 | ~55 | -87% |
+| **總計** | **1942** | **~330** | **-83%** |
+
+精簡內容：
+- 移除 report-generator 中的 JS 程式碼範例（OpenClaw agent 不執行 JS）
+- 移除 report-generator 中重複的 LINE 通知邏輯（已在 line-notify 中）
+- 移除 line-notify 中過長的 API 文件和 troubleshooting（不影響 agent 執行）
+- 移除 threads-monitor 中的三層 fallback（簡化為：LLM 解析失敗 → snapshot 一次）
+
+### 待驗證
+
+- [ ] 實際執行 v4.0.0 agent 驗證 innerText 解析效果
+- [ ] 確認 `document.body.innerText` 回傳的文字大小在合理範圍（< 20KB）
+- [ ] 確認 LLM 能正確配對文字和連結
