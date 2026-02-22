@@ -84,7 +84,7 @@ memo_run/                      # OpenClaw Skills 專案
    npm --version
    ```
 
-3. **Python 3.x**（用於 helper scripts 和 Web backend）
+3. **Python >= 3.10**（用於 helper scripts 和 Web backend，建議 3.13）
    ```bash
    python3 --version
    ```
@@ -97,8 +97,10 @@ memo_run/                      # OpenClaw Skills 專案
    cd memo_run
    ```
 
-2. **安裝 Python 依賴**
+2. **建立 Python 虛擬環境並安裝依賴**
    ```bash
+   python3 -m venv .venv
+   source .venv/bin/activate
    pip install -r requirements.txt
    ```
 
@@ -130,11 +132,17 @@ memo_run/                      # OpenClaw Skills 專案
 ### 使用方式 -- OpenClaw CLI
 
 ```bash
-# 手動觸發監控
-openclaw agent --message "執行 threads-monitor 監控" --local --channel telegram --session-id threads-monitor-manual
+# 手動觸發監控（指定關鍵字）
+openclaw agent --message "執行 threads-monitor 監控 關鍵字:黃國昌" --local --agent main
+
+# 多個關鍵字
+openclaw agent --message "執行 threads-monitor 監控 關鍵字:內湖,黃國昌" --local --agent main
+
+# 使用設定檔所有啟用的關鍵字
+openclaw agent --message "執行 threads-monitor 監控" --local --agent main
 
 # 設定自動巡邏（每 30 分鐘）
-openclaw cron add "*/30 * * * *" "openclaw agent --message '執行 threads-monitor 監控' --local --channel telegram"
+openclaw cron add "*/30 * * * *" "openclaw agent --message '執行 threads-monitor 監控' --local --agent main"
 ```
 
 ### 使用方式 -- Web Dashboard
@@ -143,8 +151,9 @@ Web Dashboard 提供圖形化介面，可以啟動監控、查看即時進度、
 
 **啟動後端（FastAPI）**:
 ```bash
-# 從專案根目錄啟動
-uvicorn web.backend.main:app --reload --host 0.0.0.0 --port 8000
+# 從專案根目錄啟動（使用 venv）
+source .venv/bin/activate
+python3 -m uvicorn web.backend.main:app --port 8000
 ```
 
 **啟動前端（Vite dev server）**:
@@ -183,17 +192,18 @@ npm run preview  # 預覽 production build
 - [x] src/pipeline.py -- 批次 pipeline（filter+dedup+scoring 一次完成）
 - [x] 完整測試套件（120 個測試: report_generator 28, line_notify 20, scoring 20, pipeline 18, filter 14, dedup 14）
 
-### Phase 3: OpenClaw Skills -- 已完成
+### Phase 3: OpenClaw Skills -- 已完成（v4.0.0）
 - [x] 研究 OpenClaw SKILL.md 格式（YAML frontmatter + Markdown）
-- [x] skills/threads-monitor/SKILL.md（348 lines，Threads 監控主流程）
-- [x] skills/line-notify/SKILL.md（437 lines，LINE 通知包裝）
-- [x] skills/report-generator/SKILL.md（979 lines，AI 分類與戰報生成）
+- [x] skills/threads-monitor/SKILL.md（innerText + LLM 自適應解析）
+- [x] skills/line-notify/SKILL.md（LINE Messaging API Broadcast + Push）
+- [x] skills/report-generator/SKILL.md（AI 分類與戰報生成）
+- [x] SKILL 精簡：總計從 1942 行 → ~330 行（-83%）
 
-### Phase 5: 驗證與測試 -- 進行中
-- [x] 單元測試驗證（120/120 passed）
+### Phase 5: 驗證與測試 -- 已完成
+- [x] 單元測試驗證（130/130 passed）
 - [x] Skills 語法驗證（3/3 passed）
 - [x] 安全性修正
-- [ ] 端對端驗證流程（待執行 openclaw agent 命令）
+- [x] 端對端驗證流程（OpenClaw agent + GPT-5.2 成功執行完整監控流程）
 - [ ] 錯誤通知機制
 
 ### Phase 6: Web Dashboard -- 已完成
@@ -319,9 +329,9 @@ npx playwright show-report
 
 | 類型 | 數量 | 工具 |
 |------|------|------|
-| Python 單元測試 | 120 | pytest + pytest-cov |
+| Python 單元測試 | 130 | pytest + pytest-cov |
 | Playwright E2E | 32 | @playwright/test |
-| **總計** | **152** | |
+| **總計** | **162** | |
 
 ## 🤝 雙 Agent 協作機制
 
@@ -362,7 +372,8 @@ npx playwright show-report
 - **Browser**: OpenClaw Browser (Chrome DevTools Protocol)
 - **Scheduling**: OpenClaw Cron
 - **Database**: SQLite（輕量、檔案型）
-- **Helper Scripts**: Python 3.x
+- **LLM Model**: OpenAI GPT-5.2（OpenClaw main agent）
+- **Helper Scripts**: Python >= 3.10
 - **Web Backend**: FastAPI 0.115.0 + uvicorn 0.32.0 + WebSocket
 - **Web Frontend**: React 19 + Vite 6 + TypeScript 5.7 + Tailwind CSS v4
 - **Charts**: Recharts 2.15（PieChart, BarChart）
@@ -390,8 +401,9 @@ npx playwright show-report
 
 ## 💰 成本估算
 
-- **LLM API**: ~$1.8/月（Haiku，基於調研）
-- **需監控實際用量**
+- **GPT-5.2**: 單次執行約 $0.28（~4 分鐘，含 Browser + AI 分析 + 通知）
+- **每 30 分鐘執行**: 約 $400/月（48 次/天 × 30 天）
+- **優化建議**: 考慮用 GPT-5 Mini 或 GPT-4o 降低成本
 
 ## ⚠️ 注意事項
 
@@ -425,9 +437,10 @@ npx playwright show-report
 
 ---
 
-**Last Updated**: 2026-02-11
-**Status**: Phase 6 (Web Dashboard) 已完成，Phase 5 (端對端驗證) 進行中
-**Tests**: 152/152 passed (120 Python + 32 Playwright E2E)
-**Skills**: 3 個 SKILL.md (1764 lines)
+**Last Updated**: 2026-02-23
+**Status**: Phase 5 (端對端驗證) 已完成，全流程可運作
+**Tests**: 162/162 passed (130 Python + 32 Playwright E2E)
+**Skills**: 3 個 SKILL.md v4.0.0（~330 lines，精簡 -83%）
+**LLM Model**: OpenAI GPT-5.2（OpenClaw main agent）
 **Web Dashboard**: FastAPI + React 19 + Vite 6 + TypeScript + Tailwind CSS v4
 **Maintainer**: Claude Code (Reviewer) + OpenClaw (Executor)
