@@ -11,24 +11,26 @@ metadata: {"openclaw": {"emoji": "🔍", "primaryEnv": "ANTHROPIC_API_KEY", "req
 ## 重要執行規則
 
 > **你必須直接執行以下所有步驟，不要委派給子 agent。**
+> **不要詢問確認，收到指令後直接開始執行。**
 > **使用 browser profile "openclaw"，在同一個 tab 中操作，不要開新 tab。**
 > **所有 Python 指令都必須使用絕對路徑 `/Users/steveopenclaw/.openclaw/workspace/memo_run/`。**
 > **每個步驟必須按順序執行，不可跳過。**
+> **Telegram 回報目標：Chat ID `1078010191`，直接發送，不要詢問。最終通知同時透過 LINE broadcast 發送。**
 
 ## 使用方式
 
 ```bash
 # 指定關鍵字
-openclaw agent --message "執行 threads-monitor 監控 關鍵字:黃國昌" --local --channel telegram
+openclaw agent --message "執行 threads-monitor 監控 關鍵字:黃國昌" --local --agent main
 
 # 多個關鍵字
-openclaw agent --message "執行 threads-monitor 監控 關鍵字:內湖,黃國昌" --local --channel telegram
+openclaw agent --message "執行 threads-monitor 監控 關鍵字:內湖,黃國昌" --local --agent main
 
 # 使用設定檔所有啟用的關鍵字
-openclaw agent --message "執行 threads-monitor 監控" --local --channel telegram
+openclaw agent --message "執行 threads-monitor 監控" --local --agent main
 
 # Cron（每 30 分鐘）
-openclaw cron add "*/30 * * * *" "openclaw agent --message '執行 threads-monitor 監控' --local --channel telegram"
+openclaw cron add "*/30 * * * *" "openclaw agent --message '執行 threads-monitor 監控' --local --agent main"
 ```
 
 ## 工作流程
@@ -44,7 +46,7 @@ openclaw cron add "*/30 * * * *" "openclaw agent --message '執行 threads-monit
 
 ### 步驟 2: 開啟 Threads 搜尋
 
-對每個關鍵字，先在 Telegram 回報：`🔍 正在搜尋關鍵字: [名稱]（第 N/M 個）`
+對每個關鍵字，在 Telegram 回報：`🔍 正在搜尋關鍵字: [名稱]（第 N/M 個）`
 
 然後導航（**必須加 `&filter=recent`**）：
 ```
@@ -182,7 +184,7 @@ python3 /Users/steveopenclaw/.openclaw/workspace/memo_run/src/report_generator.p
 python3 /Users/steveopenclaw/.openclaw/workspace/memo_run/src/line_notify.py --broadcast --message "複製的 LINE 摘要完整文字"
 ```
 
-**7c. 發送 Telegram（從輸出中 `=== Telegram 摘要 ===` 之後的文字完整複製到 Telegram channel）。**
+**7c. 發送 Telegram（從輸出中 `=== Telegram 摘要 ===` 之後的文字完整複製到 Telegram channel），同時在終端輸出。**
 
 > 訊息必須包含所有貼文連結和完整戰報 Gist 連結。不要加入程式沒有輸出的符號。
 
@@ -192,7 +194,7 @@ python3 /Users/steveopenclaw/.openclaw/workspace/memo_run/src/line_notify.py --b
 echo "$(date -Iseconds) | keywords=N | valid=N | fallback=yes/no | status=success/partial/fail" >> /Users/steveopenclaw/.openclaw/workspace/memo_run/data/health.log
 ```
 
-**異常告警（透過 Telegram）：**
+**異常告警（透過 Telegram + LINE broadcast）：**
 - 所有關鍵字有效貼文 = 0 → 告警
 - 觸發了 Fallback → 告警
 - 連續 3 筆 health.log 都是 fail/fallback → 緊急告警

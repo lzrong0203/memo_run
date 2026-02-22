@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMonitor } from '../hooks/useMonitor'
 
@@ -6,6 +6,13 @@ export default function Home() {
   const [keywordInput, setKeywordInput] = useState('')
   const { status, runId, progress, error, start, reset } = useMonitor()
   const navigate = useNavigate()
+  const progressRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (progressRef.current) {
+      progressRef.current.scrollTop = progressRef.current.scrollHeight
+    }
+  }, [progress])
 
   const handleStart = async () => {
     const keywords = keywordInput
@@ -104,7 +111,7 @@ export default function Home() {
             </div>
           )}
 
-          <div className="space-y-2 max-h-64 overflow-y-auto">
+          <div ref={progressRef} className="space-y-2 max-h-64 overflow-y-auto">
             {progress.map((msg, i) => (
               <div
                 key={i}

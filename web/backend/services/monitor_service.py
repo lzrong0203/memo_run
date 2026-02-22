@@ -160,8 +160,7 @@ async def run_monitor(
     cmd = [
         "openclaw", "agent",
         "--message", f"執行 threads-monitor 監控 關鍵字:{keywords_joined}",
-        "--local", "--channel", "telegram",
-        "--session-id", run_id,
+        "--local", "--agent", "main",
     ]
     logger.info("Launching OpenClaw: run_id=%s, keyword_count=%d", run_id, len(keywords))
 
