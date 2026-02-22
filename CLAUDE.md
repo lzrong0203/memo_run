@@ -141,11 +141,13 @@ memo_run/                      # 這個專案資料夾
 10. LINE 通知（呼叫 src/line_notify.py --broadcast，廣播給所有 LINE 好友）
 ```
 
-### v3.0.0 抽取策略
-- **主要方式**：JS 一次抽取（`a[href*="/post/"]` 寫死 selector + 向上找 container）
+### v4.0.0 抽取策略（innerText + LLM 自適應解析）
+- **主要方式**：JS 取 `document.body.innerText` + `a[href*="/post/"]` 連結，LLM 自適應解析貼文
+- **不依賴 DOM 結構**：不寫死 selector、不依賴 CSS class、不用 container 向上搜尋
 - **Snapshot 次數**：0 次（正常路徑）/ 1 次（fallback 時）
-- **三層 Fallback**：JS 重試 → 內嵌 JSON → 回退 v2.2.0 snapshot 模式
+- **Fallback**：LLM 解析 0 篇 → snapshot 一次手動提取
 - **健康檢查**：每輪記錄 `data/health.log`，連續異常自動告警
+- **SKILL 精簡**：三個 SKILL.md 從 1942 行縮減至 ~330 行（-83%），大幅降低 agent token 消耗
 
 ### Skill 設計原則
 - **SKILL.md**: 定義 OpenClaw 的行為模式
@@ -341,13 +343,14 @@ except requests.RequestException as e:
 - [x] 130 個測試全部通過
 ```
 
-### Phase 3: OpenClaw Skills -- 已完成
+### Phase 3: OpenClaw Skills -- 已完成（v4.0.0 改寫）
 ```markdown
 - [x] 研究 OpenClaw SKILL.md 格式（YAML frontmatter + Markdown）
-- [x] skills/threads-monitor/SKILL.md（348 lines，主監控流程）
-- [x] skills/line-notify/SKILL.md（437 lines，LINE 通知包裝）
-- [x] skills/report-generator/SKILL.md（979 lines，AI 分類與戰報生成）
-- [x] Skills 語法驗證通過（3/3 YAML frontmatter + 必要欄位 + 環境變數一致性）
+- [x] skills/threads-monitor/SKILL.md v4.0.0（~180 lines，innerText + LLM 自適應解析）
+- [x] skills/line-notify/SKILL.md v2.0.0（~55 lines，精簡 CLI/Python 文件）
+- [x] skills/report-generator/SKILL.md v2.0.0（~90 lines，去除重複和冗餘範例）
+- [x] Skills 精簡：總計從 1942 行 → ~330 行（-83%），大幅降低 agent token 消耗
+- [x] 去除三個 Skill 之間的重複內容（LINE/Telegram 通知邏輯、JS 程式碼範例等）
 - [ ] 測試 Skills 是否能被 OpenClaw 實際執行（待端對端驗證）
 ```
 
@@ -361,6 +364,7 @@ except requests.RequestException as e:
 - [x] Skills 語法驗證（3/3 passed）
 - [x] 安全性修正（移除 git 歷史中的明文 tokens）
 - [x] v3.0.0 SKILL.md 改寫（JS DOM 抽取 + fallback + 健康檢查）
+- [x] v4.0.0 SKILL.md 改寫（innerText + LLM 自適應解析，SKILL 精簡 -83%）
 - [ ] 端對端驗證流程（待執行 openclaw agent 命令）
 - [ ] 錯誤通知機制
 ```
@@ -488,7 +492,7 @@ set -a && source .env && set +a
 
 ---
 
-**Last Updated**: 2026-02-11
+**Last Updated**: 2026-02-20
 **Architecture**: OpenClaw (系統級) + Python Helper Scripts + Web Dashboard (FastAPI + React)
 **Collaboration**: Claude Code (Reviewer) + OpenClaw (Executor)
 **No Docker Needed**: OpenClaw 跑在系統上，這個專案是 Skills 和資料
@@ -496,3 +500,4 @@ set -a && source .env && set +a
 **Pipeline**: pipeline.py 批次處理（filter+dedup+scoring 一次完成，取代逐篇 exec）
 **Web Dashboard**: FastAPI 0.115.0 + React 19 + Vite 6 + TypeScript + Tailwind CSS v4 + Playwright
 **Test Status**: 162 tests passed (130 Python + 32 Playwright E2E)
+**SKILL v4.0.0**: innerText + LLM 自適應解析（取代寫死 JS selector），SKILL 精簡 -83%
